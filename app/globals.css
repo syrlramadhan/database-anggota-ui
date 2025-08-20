@@ -1,0 +1,63 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+
+/* Animasi Fade-in */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Animasi Scale untuk Hover */
+.scale-hover:hover {
+  transform: scale(1.05);
+  transition: transform 0.3s ease;
+}
+
+/* Animasi untuk Hero */
+.hero-text {
+  animation: fadeIn 1s ease-out;
+}
+
+/* Gaya kustom lainnya (jika ada) */
+.card {
+  /* Contoh gaya dari proyek Anda */
+  transition: transform 0.3s ease;
+}
+.card:hover {
+  transform: scale(1.05);
+}
+.scale-hover {
+  transition: transform 0.3s ease;
+}
+.scale-hover:hover {
+  transform: scale(1.1);
+}
+
+/* Gradien Hijau */
+.bg-gradient-hero {
+  background: linear-gradient(to right, #f5f5f5, #e0f2e9);
+}
+
+/* globals.css */
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  overflow-x: hidden; /* Mencegah scrollbar horizontal */
+  box-sizing: border-box;
+}
+
+*, *:before, *:after {
+  box-sizing: inherit; /* Pastikan semua elemen menggunakan box-sizing: border-box */
+}
+
+.container {
+  width: 100%;
+  max-width: 100%; /* Pastikan container tidak melebihi viewport */
+  padding-left: 16px;
+  padding-right: 16px;
+  margin-left: auto;
+  margin-right: auto;
+}
