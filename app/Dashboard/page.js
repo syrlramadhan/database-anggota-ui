@@ -1,8 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Bell, LogOut, MessageCircle, Users, MessageSquare, Home, Calendar, MoreHorizontal, Edit2, Settings, X, Upload, Star, Check } from 'lucide-react'
+import { Bell, LogOut, Users, Home, X, Upload, Star, Check, Plus } from 'lucide-react'
 
 export default function DashboardPage() {
   const [activeTab, setActiveTab] = useState('Dashboard')
@@ -10,9 +10,10 @@ export default function DashboardPage() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [showAddModal, setShowAddModal] = useState(false)
   const [members, setMembers] = useState([])
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState(null)
   const router = useRouter()
 
-  // Form state for adding new member
   const [formData, setFormData] = useState({
     nama: '',
     email: '',
@@ -23,46 +24,213 @@ export default function DashboardPage() {
     photo: null
   })
 
+  const [formErrors, setFormErrors] = useState({})
+  const [photoError, setPhotoError] = useState(null)
+
+  const MAX_FILE_SIZE = 2 * 1024 * 1024
+  const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/gif']
+
+  useEffect(() => {
+    const token = localStorage.getItem('token')
+    if (!token) {
+      setError('Sesi tidak valid. Silakan login kembali.')
+      router.push('/')
+      return
+    }
+    fetchMembers()
+  }, [router])
+
+  const fetchMembers = async () => {
+    setIsLoading(true)
+    try {
+      const token = localStorage.getItem('token')
+      const response = await fetch('https://dbanggota.syahrulramadhan.site/api/member', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      })
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          localStorage.removeItem('token')
+          router.push('/')
+          return
+        }
+        throw new Error('Gagal mengambil data anggota')
+      }
+
+      const data = await response.json()
+      console.log('API Members Response:', data) // Debug: Log respon API
+      setMembers(data.data.map(member => ({
+        id: member.id,
+        name: member.nama,
+        nra: member.nomorAnggota,
+        email: member.email,
+        alamat: member.alamat,
+        nomorTelepon: member.nomorTelepon,
+        avatar: member.nama.split(' ').map(word => word[0]).join('').slice(0, 2).toUpperCase(),
+        photo: member.photo
+      })))
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const validateForm = () => {
+    const errors = {}
+    if (!formData.nama.trim()) errors.nama = 'Nama wajib diisi'
+    if (!formData.email.trim()) {
+      errors.email = 'Email wajib diisi'
+    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
+      errors.email = 'Format email tidak valid'
+    }
+    if (!formData.nomorAnggota.trim()) errors.nomorAnggota = 'Nomor Anggota wajib diisi'
+    if (!formData.alamat.trim()) errors.alamat = 'Alamat wajib diisi'
+    if (!formData.nomorTelepon.trim()) {
+      errors.nomorTelepon = 'Nomor Telepon wajib diisi'
+    } else if (!/^\+?\d{10,15}$/.test(formData.nomorTelepon)) {
+      errors.nomorTelepon = 'Nomor telepon tidak valid'
+    }
+    if (!formData.password) errors.password = 'Kata sandi wajib diisi'
+    else if (formData.password.length < 6) errors.password = 'Kata sandi harus minimal 6 karakter'
+    return errors
+  }
+
+  const validatePhoto = (file) => {
+    if (!file) return null
+    if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+      return 'Format gambar tidak didukung. Gunakan JPEG, PNG, atau GIF.'
+    }
+    if (file.size > MAX_FILE_SIZE) {
+      return 'Ukuran gambar terlalu besar. Maksimum 2MB.'
+    }
+    return null
+  }
+
   const handleLogout = () => {
+    localStorage.removeItem('token')
     router.push('/')
   }
 
-  const handleAddMember = (e) => {
+  const handleAddMember = async (e) => {
     e.preventDefault()
-    const newMember = {
-      id: members.length + 1,
-      name: formData.nama,
-      nra: formData.nomorAnggota,
-      email: formData.email,
-      alamat: formData.alamat,
-      nomorTelepon: formData.nomorTelepon,
-      avatar: formData.nama.split(' ').map(word => word[0]).join('').slice(0, 2).toUpperCase(),
-      photo: formData.photo
+    setError(null)
+    setPhotoError(null)
+    setIsLoading(true)
+
+    const errors = validateForm()
+    if (Object.keys(errors).length > 0) {
+      setFormErrors(errors)
+      setIsLoading(false)
+      return
     }
-    setMembers([...members, newMember])
-    setShowAddModal(false)
-    setFormData({
-      nama: '',
-      email: '',
-      nomorAnggota: '',
-      alamat: '',
-      nomorTelepon: '',
-      password: '',
-      photo: null
-    })
+
+    try {
+      const token = localStorage.getItem('token')
+      if (!token) {
+        router.push('/')
+        return
+      }
+      const formDataToSend = new FormData()
+      formDataToSend.append('nama', formData.nama)
+      formDataToSend.append('email', formData.email)
+      formDataToSend.append('nomorAnggota', formData.nomorAnggota)
+      formDataToSend.append('alamat', formData.alamat)
+      formDataToSend.append('nomorTelepon', formData.nomorTelepon)
+      formDataToSend.append('password', formData.password)
+      if (formData.photo) {
+        const response = await fetch(formData.photo)
+        const blob = await response.blob()
+        const photoError = validatePhoto(blob)
+        if (photoError) {
+          setPhotoError(photoError)
+          setIsLoading(false)
+          return
+        }
+        formDataToSend.append('photo', blob, 'profile.jpg')
+      }
+
+      const response = await fetch('https://dbanggota.syahrulramadhan.site/api/member', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+        body: formDataToSend,
+      })
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          localStorage.removeItem('token')
+          router.push('/')
+          return
+        }
+        const data = await response.json()
+        throw new Error(data.message || 'Gagal menambah anggota')
+      }
+
+      const newMember = await response.json()
+      setMembers(prev => [...prev, {
+        id: newMember.data.id,
+        name: newMember.data.nama,
+        nra: newMember.data.nomorAnggota,
+        email: newMember.data.email,
+        alamat: newMember.data.alamat,
+        nomorTelepon: newMember.data.nomorTelepon,
+        avatar: newMember.data.nama.split(' ').map(word => word[0]).join('').slice(0, 2).toUpperCase(),
+        photo: newMember.data.photo
+      }])
+      setShowAddModal(false)
+      setFormData({
+        nama: '',
+        email: '',
+        nomorAnggota: '',
+        alamat: '',
+        nomorTelepon: '',
+        password: '',
+        photo: null
+      })
+      setFormErrors({})
+      setPhotoError(null)
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   const handleInputChange = (e) => {
     const { name, value, files } = e.target
-    setFormData({
-      ...formData,
-      [name]: files ? URL.createObjectURL(files[0]) : value
-    })
+    if (name === 'photo' && files && files[0]) {
+      const file = files[0]
+      const photoError = validatePhoto(file)
+      if (photoError) {
+        setPhotoError(photoError)
+        return
+      }
+      setFormData({
+        ...formData,
+        photo: URL.createObjectURL(file)
+      })
+    } else {
+      setFormData({
+        ...formData,
+        [name]: value
+      })
+      setFormErrors((prev) => ({ ...prev, [name]: '' }))
+    }
   }
 
   const handleDrop = (e) => {
     e.preventDefault()
     const file = e.dataTransfer.files[0]
+    const photoError = validatePhoto(file)
+    if (photoError) {
+      setPhotoError(photoError)
+      return
+    }
     if (file && file.type.startsWith('image/')) {
       setFormData({
         ...formData,
@@ -77,69 +245,26 @@ export default function DashboardPage() {
 
   const sidebarItems = [
     { name: 'Dashboard', icon: Home, active: true, href: '/Dashboard' },
-    { name: 'Member Management', icon: Users, active: false, href: '/members' },
-    { name: 'Event Management', icon: Calendar, active: false, href: '/events' },
-    { name: 'Forum', icon: MessageSquare, active: false, href: '/forum' },
-    { name: 'System Settings', icon: Settings, active: false, href: '/settings' },
-    { name: 'Features', icon: Star, badge: 'NEW', active: false, href: '/features' }
-  ]
-
-  const forumEvents = [
-    {
-      title: 'EVENT IDSECCONF 2025',
-      description: 'Selamat datang ke hari pertama registration Event conference IDSECCONF di Indonesia.',
-      author: 'Syarif Rahman',
-      timestamp: '2 jam yang lalu',
-      avatars: ['/api/placeholder/32/32', '/api/placeholder/32/32', '/api/placeholder/32/32'],
-      comments: '15 comments'
-    },
-    {
-      title: 'Cybersecurity Workshop 2025',
-      description: 'Diskusi tentang tren keamanan siber terbaru dan praktik terbaik.',
-      author: 'Ahmad Fadli',
-      timestamp: '4 jam yang lalu',
-      avatars: ['/api/placeholder/32/32', '/api/placeholder/32/32'],
-      comments: '9 comments'
-    },
-    {
-      title: 'Tech Talk: AI in Security',
-      description: 'Eksplorasi peran AI dalam meningkatkan keamanan digital.',
-      author: 'Budi Santoso',
-      timestamp: '1 hari yang lalu',
-      avatars: ['/api/placeholder/32/32', '/api/placeholder/32/32', '/api/placeholder/32/32'],
-      comments: '12 comments'
-    }
+    { name: 'Manajemen Anggota', icon: Users, active: false, href: '/members' }
   ]
 
   const memberStats = {
-    totalMembers: 245,
+    totalMembers: members.length,
     eventsActive: 8
   }
 
-  const upcomingEvents = [
-    {
-      title: 'Workshop Cybersecurity',
-      date: '2025-08-25',
-      location: 'Jakarta',
-      registered: 120
-    },
-    {
-      title: 'IDSECCONF 2025',
-      date: '2025-09-10',
-      location: 'Bali',
-      registered: 200
-    },
-    {
-      title: 'AI Security Summit',
-      date: '2025-10-15',
-      location: 'Bandung',
-      registered: 85
-    }
-  ]
-
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Mobile Sidebar Toggle */}
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+      {error && (
+        <div className="fixed top-4 right-4 z-50 text-red-500 text-sm p-3 bg-red-50 rounded-lg shadow-lg">
+          {error}
+        </div>
+      )}
+      {photoError && (
+        <div className="fixed top-16 right-4 z-50 text-red-500 text-sm p-3 bg-red-50 rounded-lg shadow-lg">
+          {photoError}
+        </div>
+      )}
       <button
         className="lg:hidden fixed top-4 left-4 z-50 p-2 bg-slate-800 text-white rounded-md hover:bg-slate-700 transition-colors"
         onClick={() => setIsSidebarOpen(!isSidebarOpen)}
@@ -150,7 +275,6 @@ export default function DashboardPage() {
       </button>
 
       <div className="flex">
-        {/* Sidebar */}
         <div className={`fixed inset-y-0 left-0 w-64 bg-slate-800 text-white transform ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 transition-transform duration-300 ease-in-out z-40`}>
           <div className="p-6 border-b border-slate-700">
             <div className="flex items-center space-x-3">
@@ -162,7 +286,6 @@ export default function DashboardPage() {
               </div>
             </div>
           </div>
-          
           <nav className="mt-6">
             {sidebarItems.map((item) => (
               <button
@@ -178,22 +301,16 @@ export default function DashboardPage() {
               >
                 <item.icon className="w-5 h-5 mr-3" />
                 <span className="text-sm">{item.name}</span>
-                {item.badge && (
-                  <span className="ml-auto bg-green-500 text-xs px-2 py-1 rounded-full">
-                    {item.badge}
-                  </span>
-                )}
               </button>
             ))}
           </nav>
         </div>
 
-        {/* Main Content */}
         <div className="flex-1 flex flex-col lg:ml-64">
           <header className="bg-white shadow-sm border-b px-6 py-4">
             <div className="flex justify-between items-center">
               <h1 className="text-lg font-medium text-gray-800">
-                Hey, Obo! Great to have you on board 🥰
+                Selamat Datang, Obo! Senang bertemu dengan Anda 🥰
               </h1>
               <div className="flex items-center space-x-4">
                 <button className="p-2 hover:bg-gray-100 rounded-lg relative">
@@ -202,237 +319,59 @@ export default function DashboardPage() {
                 </button>
                 <button
                   onClick={handleLogout}
-                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors shadow-sm"
+                  className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors shadow-sm"
                 >
-                  Log out
+                  Keluar
                 </button>
               </div>
             </div>
           </header>
 
-          <div className="flex-1 flex flex-col lg:flex-row">
-            <div className="flex-1 p-6">
-              {/* Hero Section */}
-              <div className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl p-8 mb-8 text-white">
-                <div className="max-w-3xl">
-                  <h2 className="text-3xl font-bold mb-4">Welcome to Your Command Center</h2>
-                  <p className="text-blue-100 text-lg mb-6">
-                    Manage members, events, and forums with ease. Stay updated with the latest activities and take quick actions to keep your community thriving.
-                  </p>
-                  <div className="flex items-center space-x-6">
-                    <div className="flex items-center space-x-2">
-                      <Check className="w-5 h-5 text-green-300" />
-                      <span className="text-sm">{memberStats.totalMembers} Total Members</span>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <Calendar className="w-5 h-5 text-yellow-300" />
-                      <span className="text-sm">{memberStats.eventsActive} Active Events</span>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <Star className="w-5 h-5 text-orange-300" />
-                      <span className="text-sm">3 New Features</span>
-                    </div>
+          <div className="flex-1 p-6">
+            <div className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl p-8 mb-8 text-white">
+              <div className="max-w-3xl">
+                <h2 className="text-3xl font-bold mb-4">Pusat Komando Anda</h2>
+                <p className="text-blue-100 text-lg mb-6">
+                  Kelola anggota, acara, dan forum dengan mudah. Tetap ter更新 dengan aktivitas terbaru dan ambil tindakan cepat untuk menjaga komunitas Anda berkembang.
+                </p>
+                <div className="flex items-center space-x-6">
+                  <div className="flex items-center space-x-2">
+                    <Check className="w-5 h-5 text-green-300" />
+                    <span className="text-sm">{memberStats.totalMembers} Total Anggota</span>
                   </div>
-                </div>
-              </div>
-
-              {/* Stats Grid */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-8">
-                <div className="bg-white rounded-xl shadow-sm p-6 border-l-4 border-blue-500 hover:shadow-md transition-shadow">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-semibold text-gray-600">Total Members</p>
-                      <p className="text-3xl font-bold text-gray-900">{memberStats.totalMembers}</p>
-                      <p className="text-sm text-green-600 mt-1">+8% dari bulan lalu</p>
-                    </div>
-                    <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                      <Users className="w-6 h-6 text-blue-600" />
-                    </div>
+                  <div className="flex items-center space-x-2">
+                    <Star className="w-5 h-5 text-orange-300" />
+                    <span className="text-sm">3 Fitur Baru</span>
                   </div>
-                </div>
-
-                <div className="bg-white rounded-xl shadow-sm p-6 border-l-4 border-purple-500 hover:shadow-md transition-shadow">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-semibold text-gray-600">Events Active</p>
-                      <p className="text-3xl font-bold text-gray-900">{memberStats.eventsActive}</p>
-                      <p className="text-sm text-purple-600 mt-1">3 upcoming</p>
-                    </div>
-                    <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
-                      <Calendar className="w-6 h-6 text-purple-600" />
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Upcoming Events */}
-              <div className="bg-white rounded-xl shadow-sm p-6 mb-6 hover:shadow-md transition-shadow">
-                <h3 className="text-lg font-semibold text-gray-800 mb-4">Upcoming Events</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {upcomingEvents.map((event, index) => (
-                    <div key={index} className="bg-gray-50 rounded-lg p-4 hover:bg-gray-100 transition-colors">
-                      <h4 className="text-sm font-medium text-gray-800">{event.title}</h4>
-                      <p className="text-xs text-gray-600 mt-1">Date: {event.date}</p>
-                      <p className="text-xs text-gray-600">Location: {event.location}</p>
-                      <p className="text-xs text-gray-600">Registered: {event.registered}</p>
-                      <button 
-                        onClick={() => router.push('/events')}
-                        className="mt-3 text-sm text-blue-600 hover:text-blue-700 font-medium"
-                      >
-                        View Details
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Recent Activity */}
-              <div className="bg-white rounded-xl shadow-sm p-6 mb-6 hover:shadow-md transition-shadow">
-                <h3 className="text-lg font-semibold text-gray-800 mb-4">Recent Activity</h3>
-                <div className="space-y-3">
-                  <div className="flex items-start space-x-3 p-3 hover:bg-gray-50 rounded-lg transition-colors">
-                    <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
-                      <Calendar className="w-4 h-4 text-green-600" />
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-sm text-gray-800">Event "Workshop Cybersecurity" berhasil dibuat</p>
-                      <p className="text-xs text-gray-500">4 jam yang lalu</p>
-                    </div>
-                  </div>
-                  <div className="flex items-start space-x-3 p-3 hover:bg-gray-50 rounded-lg transition-colors">
-                    <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center flex-shrink-0">
-                      <MessageSquare className="w-4 h-4 text-purple-600" />
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-sm text-gray-800">15 pesan baru di forum diskusi</p>
-                      <p className="text-xs text-gray-500">6 jam yang lalu</p>
-                    </div>
-                  </div>
-                  <div className="flex items-start space-x-3 p-3 hover:bg-gray-50 rounded-lg transition-colors">
-                    <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center flex-shrink-0">
-                      <Bell className="w-4 h-4 text-orange-600" />
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-sm text-gray-800">Reminder: Event IDSECCONF besok</p>
-                      <p className="text-xs text-gray-500">1 hari yang lalu</p>
-                    </div>
-                  </div>
-                  <div className="flex items-start space-x-3 p-3 hover:bg-gray-50 rounded-lg transition-colors">
-                    <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
-                      <Users className="w-4 h-4 text-blue-600" />
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-sm text-gray-800">Ahmad Fadli bergabung sebagai member baru</p>
-                      <p className="text-xs text-gray-500">2 jam yang lalu</p>
-                    </div>
-                  </div>
-                  <div className="flex items-start space-x-3 p-3 hover:bg-gray-50 rounded-lg transition-colors">
-                    <div className="w-8 h-8 bg-yellow-100 rounded-full flex items-center justify-center flex-shrink-0">
-                      <Star className="w-4 h-4 text-yellow-600" />
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-sm text-gray-800">New feature "AI-Powered Insights" added</p>
-                      <p className="text-xs text-gray-500">1 jam yang lalu</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Quick Actions */}
-              <div className="bg-white rounded-xl shadow-sm p-6 hover:shadow-md transition-shadow">
-                <h3 className="text-lg font-semibold text-gray-800 mb-4">Quick Actions</h3>
-                <div className="space-y-3">
-                  <button 
-                    onClick={() => setShowAddModal(true)}
-                    className="w-full flex items-center space-x-3 p-3 text-left hover:bg-blue-50 rounded-lg transition-colors"
-                  >
-                    <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
-                      <Users className="w-4 h-4 text-blue-600" />
-                    </div>
-                    <span className="text-sm font-medium text-gray-800">Add New Member</span>
-                  </button>
-                  <button 
-                    onClick={() => router.push('/events')}
-                    className="w-full flex items-center space-x-3 p-3 text-left hover:bg-green-50 rounded-lg transition-colors"
-                  >
-                    <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
-                      <Calendar className="w-4 h-4 text-green-600" />
-                    </div>
-                    <span className="text-sm font-medium text-gray-800">Create Event</span>
-                  </button>
-                  <button 
-                    onClick={() => router.push('/forum')}
-                    className="w-full flex items-center space-x-3 p-3 text-left hover:bg-purple-50 rounded-lg transition-colors"
-                  >
-                    <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
-                      <MessageSquare className="w-4 h-4 text-purple-600" />
-                    </div>
-                    <span className="text-sm font-medium text-gray-800">Manage Forums</span>
-                  </button>
-                  <button 
-                    onClick={() => router.push('/features')}
-                    className="w-full flex items-center space-x-3 p-3 text-left hover:bg-yellow-50 rounded-lg transition-colors"
-                  >
-                    <div className="w-8 h-8 bg-yellow-100 rounded-lg flex items-center justify-center">
-                      <Star className="w-4 h-4 text-yellow-600" />
-                    </div>
-                    <span className="text-sm font-medium text-gray-800">View Features</span>
-                  </button>
-                  <button 
-                    onClick={() => router.push('/settings')}
-                    className="w-full flex items-center space-x-3 p-3 text-left hover:bg-orange-50 rounded-lg transition-colors"
-                  >
-                    <div className="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center">
-                      <Settings className="w-4 h-4 text-orange-600" />
-                    </div>
-                    <span className="text-sm font-medium text-gray-800">System Settings</span>
-                  </button>
                 </div>
               </div>
             </div>
 
-            {/* Forum Sidebar */}
-            <div className="w-full lg:w-80 bg-white border-l p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-lg font-semibold text-gray-800">Forum</h2>
-                <button 
-                  onClick={() => router.push('/forum')}
-                  className="text-blue-600 hover:text-blue-700 text-sm font-medium"
-                >
-                  View All
-                </button>
-              </div>
-
-              <div className="space-y-4">
-                {forumEvents.map((event, index) => (
-                  <div key={index} className="border-b border-gray-100 pb-4 last:border-b-0">
-                    <div className="flex justify-between items-start mb-2">
-                      <div>
-                        <span className="bg-orange-100 text-orange-600 text-xs px-2 py-1 rounded">Event</span>
-                        <h3 className="font-medium text-sm text-gray-800 mt-1">{event.title}</h3>
-                      </div>
-                      <button className="text-gray-400 hover:text-gray-600">
-                        <MoreHorizontal className="w-4 h-4" />
-                      </button>
-                    </div>
-                    <p className="text-xs text-gray-600 mb-2 leading-relaxed">
-                      {event.description}
-                    </p>
-                    <p className="text-xs text-gray-500">By {event.author} • {event.timestamp}</p>
-                    <div className="flex items-center justify-between mt-2">
-                      <div className="flex -space-x-2">
-                        {[...Array(3)].map((_, i) => (
-                          <div key={i} className="w-6 h-6 bg-gradient-to-r from-blue-400 to-purple-400 rounded-full border-2 border-white"></div>
-                        ))}
-                      </div>
-                      <div className="flex items-center space-x-1 text-gray-400">
-                        <MessageCircle className="w-3 h-3" />
-                        <span className="text-xs">{event.comments}</span>
-                      </div>
-                    </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-8">
+              <div className="bg-white rounded-xl shadow-sm p-6 border-l-4 border-blue-500 hover:shadow-md transition-shadow">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-semibold text-gray-600">Total Anggota</p>
+                    <p className="text-3xl font-bold text-gray-900">{memberStats.totalMembers}</p>
+                    <p className="text-sm text-green-600 mt-1">+8% dari bulan lalu</p>
                   </div>
-                ))}
+                  <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                    <Users className="w-6 h-6 text-blue-600" />
+                  </div>
+                </div>
               </div>
+            </div>
+
+            <div className="flex justify-start mb-6">
+              <button
+                onClick={() => setShowAddModal(true)}
+                className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg text-sm flex items-center space-x-2 transition-colors"
+                aria-label="Tambah anggota baru"
+                disabled={isLoading}
+              >
+                <Plus className="w-4 h-4" />
+                <span>Tambah Anggota</span>
+              </button>
             </div>
           </div>
 
@@ -441,33 +380,36 @@ export default function DashboardPage() {
               onClick={() => setSupportOpen(!supportOpen)}
               className="bg-slate-700 hover:bg-slate-800 text-white p-3 rounded-full shadow-lg transition-colors"
             >
-              <MessageCircle className="w-5 h-5" />
+              <Users className="w-5 h-5" />
             </button>
             {supportOpen && (
               <div className="absolute bottom-full right-0 mb-2 bg-slate-800 text-white px-3 py-1 rounded text-sm whitespace-nowrap">
-                Support
+                Dukungan
               </div>
             )}
           </div>
 
-          {/* Add Member Modal */}
           {showAddModal && (
             <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4 sm:p-6">
               <div className="bg-white rounded-2xl shadow-xl w-full max-w-md sm:max-w-lg transform transition-all duration-300 scale-100 hover:scale-[1.01] overflow-y-auto max-h-[90vh]">
                 <div className="p-6 sm:p-8">
                   <div className="flex justify-between items-center mb-6">
-                    <h2 className="text-2xl font-bold text-gray-900">Add New Member</h2>
+                    <h2 className="text-2xl font-bold text-gray-900">Tambah Anggota Baru</h2>
                     <button
-                      onClick={() => setShowAddModal(false)}
+                      onClick={() => {
+                        setShowAddModal(false)
+                        setFormErrors({})
+                        setPhotoError(null)
+                      }}
                       className="text-gray-500 hover:text-gray-700 transition-colors p-2 rounded-full hover:bg-gray-100"
                     >
                       <X className="w-6 h-6" />
                     </button>
                   </div>
                   
-                  <form onSubmit={handleAddMember} className="space-y-6">
+                  <form onSubmit={handleAddMember} className="space-y-6" noValidate>
                     <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">Photo</label>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">Foto</label>
                       <div 
                         className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-blue-400 transition-colors"
                         onDrop={handleDrop}
@@ -480,18 +422,18 @@ export default function DashboardPage() {
                               alt="Preview"
                               className="w-20 h-20 rounded-full object-cover mb-3 border border-gray-200"
                             />
-                            <p className="text-sm text-gray-500">Drag or click to replace</p>
+                            <p className="text-sm text-gray-500">Seret atau klik untuk mengganti</p>
                           </div>
                         ) : (
                           <div className="flex flex-col items-center">
                             <Upload className="w-8 h-8 text-gray-400 mb-2" />
-                            <p className="text-sm text-gray-500">Drag & drop an image here or click to upload</p>
+                            <p className="text-sm text-gray-500">Seret & lepas gambar di sini atau klik untuk mengunggah</p>
                           </div>
                         )}
                         <input
                           type="file"
                           name="photo"
-                          accept="image/*"
+                          accept="image/jpeg,image/png,image/gif"
                           onChange={handleInputChange}
                           className="hidden"
                           id="photo-upload"
@@ -500,9 +442,12 @@ export default function DashboardPage() {
                           htmlFor="photo-upload"
                           className="mt-3 inline-block px-4 py-2 bg-blue-100 text-blue-700 rounded-md text-sm font-medium hover:bg-blue-200 cursor-pointer transition-colors"
                         >
-                          Select Photo
+                          Pilih Foto
                         </label>
                       </div>
+                      {photoError && (
+                        <p className="text-sm text-red-500 mt-1">{photoError}</p>
+                      )}
                     </div>
                     <div>
                       <label className="block text-sm font-semibold text-gray-700 mb-2">Nama</label>
@@ -511,9 +456,14 @@ export default function DashboardPage() {
                         name="nama"
                         value={formData.nama}
                         onChange={handleInputChange}
-                        className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors bg-gray-50"
+                        className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors bg-gray-50 ${
+                          formErrors.nama ? 'border-red-500' : 'border-gray-200'
+                        }`}
                         required
                       />
+                      {formErrors.nama && (
+                        <p className="text-sm text-red-500 mt-1">{formErrors.nama}</p>
+                      )}
                     </div>
                     <div>
                       <label className="block text-sm font-semibold text-gray-700 mb-2">Email</label>
@@ -522,9 +472,14 @@ export default function DashboardPage() {
                         name="email"
                         value={formData.email}
                         onChange={handleInputChange}
-                        className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors bg-gray-50"
+                        className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors bg-gray-50 ${
+                          formErrors.email ? 'border-red-500' : 'border-gray-200'
+                        }`}
                         required
                       />
+                      {formErrors.email && (
+                        <p className="text-sm text-red-500 mt-1">{formErrors.email}</p>
+                      )}
                     </div>
                     <div>
                       <label className="block text-sm font-semibold text-gray-700 mb-2">Nomor Anggota</label>
@@ -533,9 +488,14 @@ export default function DashboardPage() {
                         name="nomorAnggota"
                         value={formData.nomorAnggota}
                         onChange={handleInputChange}
-                        className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors bg-gray-50"
+                        className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors bg-gray-50 ${
+                          formErrors.nomorAnggota ? 'border-red-500' : 'border-gray-200'
+                        }`}
                         required
                       />
+                      {formErrors.nomorAnggota && (
+                        <p className="text-sm text-red-500 mt-1">{formErrors.nomorAnggota}</p>
+                      )}
                     </div>
                     <div>
                       <label className="block text-sm font-semibold text-gray-700 mb-2">Alamat Tempat Tinggal</label>
@@ -544,9 +504,14 @@ export default function DashboardPage() {
                         value={formData.alamat}
                         onChange={handleInputChange}
                         rows={4}
-                        className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors bg-gray-50"
+                        className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors bg-gray-50 ${
+                          formErrors.alamat ? 'border-red-500' : 'border-gray-200'
+                        }`}
                         required
                       />
+                      {formErrors.alamat && (
+                        <p className="text-sm text-red-500 mt-1">{formErrors.alamat}</p>
+                      )}
                     </div>
                     <div>
                       <label className="block text-sm font-semibold text-gray-700 mb-2">Nomor Telepon</label>
@@ -555,34 +520,74 @@ export default function DashboardPage() {
                         name="nomorTelepon"
                         value={formData.nomorTelepon}
                         onChange={handleInputChange}
-                        className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors bg-gray-50"
+                        className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors bg-gray-50 ${
+                          formErrors.nomorTelepon ? 'border-red-500' : 'border-gray-200'
+                        }`}
                         required
                       />
+                      {formErrors.nomorTelepon && (
+                        <p className="text-sm text-red-500 mt-1">{formErrors.nomorTelepon}</p>
+                      )}
                     </div>
                     <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">Password</label>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">Kata Sandi</label>
                       <input
                         type="password"
                         name="password"
                         value={formData.password}
                         onChange={handleInputChange}
-                        className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors bg-gray-50"
+                        className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors bg-gray-50 ${
+                          formErrors.password ? 'border-red-500' : 'border-gray-200'
+                        }`}
                         required
                       />
+                      {formErrors.password && (
+                        <p className="text-sm text-red-500 mt-1">{formErrors.password}</p>
+                      )}
                     </div>
                     <div className="flex space-x-4 pt-4">
                       <button
                         type="button"
-                        onClick={() => setShowAddModal(false)}
+                        onClick={() => {
+                          setShowAddModal(false)
+                          setFormErrors({})
+                          setPhotoError(null)
+                        }}
                         className="flex-1 px-4 py-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-sm font-semibold shadow-sm"
+                        disabled={isLoading}
                       >
-                        Cancel
+                        Batal
                       </button>
                       <button
                         type="submit"
-                        className="flex-1 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-semibold shadow-sm"
+                        className={`flex-1 px-4 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-sm font-semibold shadow-sm flex items-center justify-center ${
+                          isLoading ? 'opacity-50 cursor-not-allowed' : ''
+                        }`}
+                        disabled={isLoading}
                       >
-                        Add Member
+                        {isLoading && (
+                          <svg
+                            className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
+                            xmlns="http://www.w3.org/2000/svg"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                          >
+                            <circle
+                              className="opacity-25"
+                              cx="12"
+                              cy="12"
+                              r="10"
+                              stroke="currentColor"
+                              strokeWidth="4"
+                            ></circle>
+                            <path
+                              className="opacity-75"
+                              fill="currentColor"
+                              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                            ></path>
+                          </svg>
+                        )}
+                        {isLoading ? 'Memproses...' : 'Tambah Anggota'}
                       </button>
                     </div>
                   </form>

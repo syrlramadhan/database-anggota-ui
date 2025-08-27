@@ -82,10 +82,7 @@ export default function SettingsPage() {
 
   const sidebarItems = [
     { name: 'Dashboard', icon: Home, active: false, href: '/Dashboard' },
-    { name: 'Member Management', icon: Users, active: false, href: '/members' },
-    { name: 'Event Management', icon: Calendar, active: false, href: '/events' },
-    { name: 'Forum', icon: MessageSquare, active: false, href: '/forum' },
-    { name: 'System Settings', icon: Settings, active: true, href: '/settings' }
+    { name: 'Member Management', icon: Users, active: false, href: '/members' }
   ]
 
   const settingsTabs = [
