@@ -29,7 +29,6 @@ export const useAuth = () => {
   const checkTokenAndRedirect = useCallback(() => {
     const token = localStorage.getItem('token');
     if (!token) {
-      console.log('No token found, redirecting to login');
       router.push('/');
       return false;
     }
@@ -60,7 +59,6 @@ export const useAuth = () => {
 
       if (!response.ok) {
         if (response.status === 401) {
-          console.log('Token expired, redirecting to login');
           logout();
           return;
         }
@@ -68,7 +66,6 @@ export const useAuth = () => {
       }
 
       const data = await response.json();
-      console.log('User profile data:', data);
 
       if (data.data) {
         setUser({
@@ -86,7 +83,6 @@ export const useAuth = () => {
         throw new Error('Invalid response format');
       }
     } catch (err) {
-      console.error('Error fetching user profile:', err);
       if (err.message === 'Unauthorized' || err.message.includes('401')) {
         logout();
       } else {

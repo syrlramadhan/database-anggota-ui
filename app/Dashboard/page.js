@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Users, TrendingUp, UserCheck, UserPlus } from 'lucide-react';
+import { Users, TrendingUp, UserPlus } from 'lucide-react';
 import MainLayout from '../../components/layout/MainLayout';
 import Button from '../../components/ui/Button';
 import config from '../../config';
@@ -28,8 +28,9 @@ export default function DashboardPage() {
     try {
       const token = localStorage.getItem('token');
       const response = await fetch(`${config.api.url}${config.endpoints.member}`, {
+        method: 'GET',
         headers: {
-          'Authorization': `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
       });
@@ -40,13 +41,13 @@ export default function DashboardPage() {
         }
         throw new Error('Gagal mengambil data anggota.');
       }
-
+      
       const data = await response.json();
       if (!data.data || !Array.isArray(data.data)) {
         throw new Error('Struktur respons API tidak valid.');
       }
 
-      setMembers(data.data.filter(member => member.id));
+      setMembers(data.data.filter(member => member.id_member));
     } catch (err) {
       setError(err.message.includes('login kembali') ? err.message : 'Gagal mengambil data anggota.');
       if (err.message.includes('login kembali')) router.push('/');
@@ -57,17 +58,8 @@ export default function DashboardPage() {
 
   // Calculate statistics
   const totalMembers = members.length;
-  const activeMembers = members.filter(member => 
-    member.status_keanggotaan === 'anggota' || member.status_keanggotaan === 'bph'
-  ).length;
   const bphMembers = members.filter(member => member.status_keanggotaan === 'bph').length;
-  const newMembersThisMonth = members.filter(member => {
-    if (!member.tanggal_dikukuhkan) return false;
-    const memberDate = new Date(member.tanggal_dikukuhkan);
-    const currentDate = new Date();
-    return memberDate.getMonth() === currentDate.getMonth() && 
-           memberDate.getFullYear() === currentDate.getFullYear();
-  }).length;
+  const newMembers = members.filter(member => member.status_keanggotaan === 'anggota').length;
 
   const stats = [
     {
@@ -79,15 +71,7 @@ export default function DashboardPage() {
       changeType: 'increase'
     },
     {
-      title: 'Anggota Aktif',
-      value: activeMembers,
-      icon: UserCheck,
-      color: 'bg-green-500',
-      change: '+8%',
-      changeType: 'increase'
-    },
-    {
-      title: 'BPH',
+      title: 'Total BPH',
       value: bphMembers,
       icon: TrendingUp,
       color: 'bg-purple-500',
@@ -95,8 +79,8 @@ export default function DashboardPage() {
       changeType: 'neutral'
     },
     {
-      title: 'Anggota Baru',
-      value: newMembersThisMonth,
+      title: 'Total Anggota Baru',
+      value: newMembers,
       icon: UserPlus,
       color: 'bg-orange-500',
       change: '+25%',
@@ -133,7 +117,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Statistics Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {stats.map((stat, index) => {
             const Icon = stat.icon;
             return (
@@ -197,7 +181,7 @@ export default function DashboardPage() {
               ) : (
                 <div className="space-y-4">
                   {recentMembers.map((member) => (
-                    <div key={member.id} className="flex items-center space-x-4 p-3 hover:bg-gray-50 rounded-lg">
+                    <div key={member.id_member} className="flex items-center space-x-4 p-3 hover:bg-gray-50 rounded-lg">
                       <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
                         <span className="text-blue-600 font-medium text-sm">
                           {member.nama?.charAt(0)?.toUpperCase() || 'N'}
