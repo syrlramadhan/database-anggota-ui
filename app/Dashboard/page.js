@@ -361,18 +361,6 @@ export default function DashboardPage() {
                 </div>
               </div>
             </div>
-
-            <div className="flex justify-start mb-6">
-              <button
-                onClick={() => setShowAddModal(true)}
-                className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg text-sm flex items-center space-x-2 transition-colors"
-                aria-label="Tambah anggota baru"
-                disabled={isLoading}
-              >
-                <Plus className="w-4 h-4" />
-                <span>Tambah Anggota</span>
-              </button>
-            </div>
           </div>
 
           <div className="fixed bottom-6 right-6">
