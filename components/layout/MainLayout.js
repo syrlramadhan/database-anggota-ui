@@ -13,7 +13,7 @@ export default function MainLayout({ children }) {
 
   return (
     <AuthGuard>
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex">
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
         {/* Sidebar */}
         <Sidebar 
           isOpen={isSidebarOpen} 
@@ -21,8 +21,8 @@ export default function MainLayout({ children }) {
           currentPath={pathname}
         />
         
-        {/* Main Content */}
-        <div className="flex-1 flex flex-col">
+        {/* Main Content - with left margin for fixed sidebar on desktop */}
+        <div className="lg:ml-64 flex flex-col min-h-screen">
           {/* Header */}
           <Header 
             onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
@@ -41,7 +41,7 @@ export default function MainLayout({ children }) {
         {/* Mobile Sidebar Overlay */}
         {isSidebarOpen && (
           <div 
-            className="fixed inset-0 bg-black bg-opacity-50 z-20 lg:hidden"
+            className="fixed inset-0 bg-black bg-opacity-50 z-30 lg:hidden"
             onClick={() => setIsSidebarOpen(false)}
           />
         )}

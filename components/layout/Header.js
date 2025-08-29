@@ -1,6 +1,6 @@
 'use client';
 
-import { Menu, Bell, User, ChevronDown, LogOut, Settings, UserIcon } from 'lucide-react';
+import { Menu, User, ChevronDown, UserIcon } from 'lucide-react';
 import { useState } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import config from '../../config';
@@ -40,7 +40,7 @@ export default function Header({ onToggleSidebar, isSidebarOpen }) {
   };
 
   return (
-    <header className="bg-white border-b border-gray-200 px-6 py-4">
+    <header className="sticky top-0 z-30 bg-white border-b border-gray-200 px-6 py-4 shadow-sm lg:ml-0">
       <div className="flex items-center justify-between">
         {/* Left side */}
         <div className="flex items-center space-x-4">
@@ -70,12 +70,6 @@ export default function Header({ onToggleSidebar, isSidebarOpen }) {
 
         {/* Right side */}
         <div className="flex items-center space-x-4">
-          {/* Notifications */}
-          <button className="relative p-2 rounded-md hover:bg-gray-100">
-            <Bell className="w-6 h-6 text-gray-600" />
-            <span className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full"></span>
-          </button>
-
           {/* User Dropdown */}
           <div className="relative">
             <button
@@ -157,21 +151,6 @@ export default function Header({ onToggleSidebar, isSidebarOpen }) {
                   <button className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
                     <UserIcon className="w-4 h-4 mr-3" />
                     Profil Saya
-                  </button>
-                  <button className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                    <Settings className="w-4 h-4 mr-3" />
-                    Pengaturan
-                  </button>
-                  <div className="border-t border-gray-100 my-1"></div>
-                  <button
-                    onClick={() => {
-                      setShowDropdown(false);
-                      logout();
-                    }}
-                    className="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50"
-                  >
-                    <LogOut className="w-4 h-4 mr-3" />
-                    Keluar
                   </button>
                 </div>
               </div>

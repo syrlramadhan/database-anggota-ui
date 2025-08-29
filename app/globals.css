@@ -47,10 +47,28 @@ html, body {
   width: 100%;
   overflow-x: hidden; /* Mencegah scrollbar horizontal */
   box-sizing: border-box;
+  scroll-behavior: smooth;
 }
 
 *, *:before, *:after {
   box-sizing: inherit; /* Pastikan semua elemen menggunakan box-sizing: border-box */
+}
+
+/* Ensure sticky positioning works correctly */
+.sticky-header {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+}
+
+.fixed-sidebar {
+  position: fixed;
+  z-index: 40;
+}
+
+/* Fix for scroll behavior with fixed elements */
+body {
+  position: relative;
 }
 
 .container {
