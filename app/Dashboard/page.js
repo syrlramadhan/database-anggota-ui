@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Users, TrendingUp, UserCheck, UserPlus } from 'lucide-react';
 import MainLayout from '../../components/layout/MainLayout';
 import Button from '../../components/ui/Button';
+import config from '../../config';
 
 export default function DashboardPage() {
   const [members, setMembers] = useState([]);
@@ -26,7 +27,7 @@ export default function DashboardPage() {
     setIsLoading(true);
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('https://dbanggota.syahrulramadhan.site/api/member', {
+      const response = await fetch(`${config.api.url}${config.endpoints.member}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',

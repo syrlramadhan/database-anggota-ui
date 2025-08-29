@@ -3,6 +3,7 @@
 import { Search, UserPlus, Edit, Trash2 } from 'lucide-react';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
+import config from '../../config';
 
 export default function MembersTable({ 
   members = [], 
@@ -36,6 +37,16 @@ export default function MembersTable({
       'bg-gray-500'
     ];
     return colors[index % colors.length];
+  };
+
+  const getMemberPhotoUrl = (foto) => {
+    if (!foto || foto === 'N/A' || foto === 'Foto') return null;
+    if (foto.startsWith('http')) return foto;
+    if (foto.startsWith('/uploads/') || foto.includes('uploads/')) {
+      const fileName = foto.replace('/uploads/', '').replace('uploads/', '');
+      return config.endpoints.uploads(fileName);
+    }
+    return config.endpoints.uploads(foto);
   };
 
   const filteredMembers = searchTerm.trim() === '' 
@@ -114,33 +125,18 @@ export default function MembersTable({
                   key={member.id}
                   className="border-b hover:bg-gray-50 transition-colors"
                 >
-                  <td className="py-4 px-6">
+                                    <td className="py-4 px-6">
                     <div className="flex items-center space-x-3">
-                      {member.foto ? (
-                        <div className="relative">
-                          <img
-                            src={member.foto}
-                            alt={`Foto ${member.name}`}
-                            className="w-8 h-8 rounded-full object-cover border border-gray-200"
-                            onError={(e) => {
-                              console.log('Failed to load image:', member.foto);
-                              e.target.style.display = 'none';
-                              e.target.nextElementSibling.style.display = 'flex';
-                            }}
-                            onLoad={(e) => {
-                              // Hide the avatar when image loads successfully
-                              if (e.target.nextElementSibling) {
-                                e.target.nextElementSibling.style.display = 'none';
-                              }
-                            }}
-                          />
-                          <div
-                            className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-medium ${getAvatarColor(index)}`}
-                            style={{ display: 'none' }}
-                          >
-                            {member.name && member.name !== 'N/A' ? member.name.charAt(0).toUpperCase() : 'A'}
-                          </div>
-                        </div>
+                      {getMemberPhotoUrl(member.foto) ? (
+                        <img
+                          src={getMemberPhotoUrl(member.foto)}
+                          alt={`Foto ${member.name}`}
+                          className="w-8 h-8 rounded-full object-cover border border-gray-200"
+                          onError={(e) => {
+                            e.target.style.display = 'none';
+                            e.target.nextSibling.style.display = 'flex';
+                          }}
+                        />
                       ) : (
                         <div
                           className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-medium ${getAvatarColor(index)}`}

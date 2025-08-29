@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import config from '../config';
 
 export default function LoginPage() {
   const [nra, setNra] = useState('');
@@ -64,7 +65,7 @@ export default function LoginPage() {
     };
 
     try {
-      const response = await retryFetch('https://dbanggota.syahrulramadhan.site/api/member/login', {
+      const response = await retryFetch(`${config.api.url}/member/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

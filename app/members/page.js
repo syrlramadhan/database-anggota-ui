@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import MainLayout from '../../components/layout/MainLayout';
 import MembersTable from '../../components/members/MembersTable';
 import AddMemberForm from '../../components/members/AddMemberForm';
+import config from '../../config';
 import Modal from '../../components/ui/Modal';
 
 export default function MembersPage() {
@@ -45,7 +46,7 @@ export default function MembersPage() {
       const token = localStorage.getItem('token');
       if (!token) throw new Error('Token tidak ditemukan. Silakan login kembali.');
 
-      const response = await retryFetch('https://dbanggota.syahrulramadhan.site/api/member', {
+      const response = await retryFetch(`${config.api.url}${config.endpoints.member}`, {
         method: 'GET',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -84,8 +85,8 @@ export default function MembersPage() {
               if (member.foto.startsWith('http')) {
                 fotoUrl = member.foto;
               } else {
-                // If it's just a filename, construct the full URL
-                fotoUrl = `https://dbanggota.syahrulramadhan.site/uploads/${member.foto}`;
+                // If it's just a filename, construct the full URL using config
+                fotoUrl = config.endpoints.uploads(member.foto);
               }
             }
 
@@ -147,7 +148,7 @@ export default function MembersPage() {
       const token = localStorage.getItem('token');
       if (!token) throw new Error('Sesi tidak valid. Silakan login kembali.');
 
-      await retryFetch(`https://dbanggota.syahrulramadhan.site/api/member/${member.id}`, {
+      await retryFetch(`${config.api.url}${config.endpoints.member}/${member.id}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -219,7 +220,7 @@ export default function MembersPage() {
         console.log(pair[0], pair[1] instanceof Blob ? `File: ${pair[1].size} bytes` : pair[1]);
       }
 
-      const response = await retryFetch('https://dbanggota.syahrulramadhan.site/api/member', {
+      const response = await retryFetch(`${config.api.url}${config.endpoints.member}`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,

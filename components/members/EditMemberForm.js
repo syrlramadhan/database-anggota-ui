@@ -5,6 +5,7 @@ import { Upload } from 'lucide-react';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
 import Select from '../ui/Select';
+import config from '../../config';
 
 export default function EditMemberForm({ 
   member, 
@@ -204,7 +205,7 @@ export default function EditMemberForm({
         formDataToSend.append('foto', blob, 'profile.jpg');
       }
 
-      const response = await retryFetch(`https://dbanggota.syahrulramadhan.site/api/member/${member.id}`, {
+      const response = await retryFetch(`${config.api.url}${config.endpoints.member}/${member.id}`, {
         method: 'PUT',
         headers: { Authorization: `Bearer ${token}` },
         body: formDataToSend,
@@ -244,7 +245,7 @@ export default function EditMemberForm({
             />
           ) : member?.foto ? (
             <img
-              src={`https://dbanggota.syahrulramadhan.site/storage/photos/${member.foto}`}
+              src={config.endpoints.uploads(member.foto)}
               alt={`Foto ${member.name}`}
               className="w-24 h-24 rounded-full object-cover border-4 border-gray-200 shadow-sm"
             />
