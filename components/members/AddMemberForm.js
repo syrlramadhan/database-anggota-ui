@@ -17,6 +17,7 @@ export default function AddMemberForm({
     nama: '',
     nra: '',
     foto: null,
+    fotoFile: null, // Store the actual file
     angkatan: '',
     status_keanggotaan: '',
     jurusan: '',
@@ -91,19 +92,26 @@ export default function AddMemberForm({
       
       const reader = new FileReader();
       reader.onload = (e) => {
-        setFormData(prev => ({ ...prev, foto: e.target.result }));
+        setFormData(prev => ({ 
+          ...prev, 
+          foto: e.target.result, // For preview
+          fotoFile: file // Store actual file
+        }));
       };
       reader.readAsDataURL(file);
     } else if (name === 'nra') {
-      // Auto-format NRA
+      // Auto-format NRA to XX.XX.XXX
       let formattedValue = value.replace(/[^\d]/g, '');
       if (formattedValue.length >= 2) {
         formattedValue = formattedValue.substring(0, 2) + '.' + formattedValue.substring(2);
       }
       if (formattedValue.length >= 6) {
-        formattedValue = formattedValue.substring(0, 6) + '.' + formattedValue.substring(6, 9);
+        formattedValue = formattedValue.substring(0, 5) + '.' + formattedValue.substring(5, 8);
       }
       setFormData(prev => ({ ...prev, [name]: formattedValue }));
+    } else if (name === 'tanggal_dikukuhkan') {
+      // Store date in YYYY-MM-DD format for input display
+      setFormData(prev => ({ ...prev, [name]: value }));
     } else {
       setFormData(prev => ({ ...prev, [name]: value }));
     }
@@ -127,7 +135,11 @@ export default function AddMemberForm({
       
       const reader = new FileReader();
       reader.onload = (e) => {
-        setFormData(prev => ({ ...prev, foto: e.target.result }));
+        setFormData(prev => ({ 
+          ...prev, 
+          foto: e.target.result, // For preview
+          fotoFile: file // Store actual file
+        }));
       };
       reader.readAsDataURL(file);
     }
@@ -138,6 +150,7 @@ export default function AddMemberForm({
       nama: '',
       nra: '',
       foto: null,
+      fotoFile: null,
       angkatan: '',
       status_keanggotaan: '',
       jurusan: '',
@@ -154,7 +167,19 @@ export default function AddMemberForm({
       setFormErrors(errors);
       return;
     }
-    onSubmit(formData);
+    
+    // Convert date format from YYYY-MM-DD to DD-MM-YYYY for API
+    const submitData = { ...formData };
+    if (submitData.tanggal_dikukuhkan) {
+      const date = new Date(submitData.tanggal_dikukuhkan);
+      const day = String(date.getDate()).padStart(2, '0');
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const year = date.getFullYear();
+      submitData.tanggal_dikukuhkan = `${day}-${month}-${year}`;
+    }
+    
+    console.log('Data form yang akan dikirim:', submitData);
+    onSubmit(submitData);
     resetForm();
   };
 
@@ -299,14 +324,19 @@ export default function AddMemberForm({
             required
           />
 
-          <Input
-            label="Tanggal Dikukuhkan (Opsional)"
-            name="tanggal_dikukuhkan"
-            type="date"
-            value={formData.tanggal_dikukuhkan}
-            onChange={handleInputChange}
-            error={formErrors.tanggal_dikukuhkan}
-          />
+          <div>
+            <Input
+              label="Tanggal Dikukuhkan (Opsional)"
+              name="tanggal_dikukuhkan"
+              type="date"
+              value={formData.tanggal_dikukuhkan}
+              onChange={handleInputChange}
+              error={formErrors.tanggal_dikukuhkan}
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              Tanggal akan disimpan dalam format DD-MM-YYYY
+            </p>
+          </div>
         </div>
 
         <div className="flex justify-end space-x-3 pt-6">

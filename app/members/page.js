@@ -173,15 +173,53 @@ export default function MembersPage() {
       const token = localStorage.getItem('token');
       if (!token) throw new Error('Sesi tidak valid. Silakan login kembali.');
 
+      console.log('Form data yang akan dikirim:', formData);
+
       // Create FormData for file upload
       const submitData = new FormData();
+      
+      // Handle regular form fields
       Object.keys(formData).forEach(key => {
+        if (key === 'foto' || key === 'fotoFile') {
+          // Skip foto fields, we'll handle them separately
+          return;
+        }
         if (formData[key] !== null && formData[key] !== '') {
           submitData.append(key, formData[key]);
         }
       });
 
-      await retryFetch('https://dbanggota.syahrulramadhan.site/api/member', {
+      // Handle foto separately - use actual file if exists
+      if (formData.fotoFile) {
+        submitData.append('foto', formData.fotoFile);
+        console.log('Foto berhasil ditambahkan:', formData.fotoFile.name, formData.fotoFile.size, 'bytes');
+      } else if (formData.foto && formData.foto.startsWith('data:image/')) {
+        try {
+          // Fallback: Convert base64 to blob if fotoFile not available
+          const response = await fetch(formData.foto);
+          const blob = await response.blob();
+          
+          // Create a proper file name based on the image type
+          const mimeType = formData.foto.split(',')[0].split(':')[1].split(';')[0];
+          const extension = mimeType.split('/')[1];
+          const fileName = `profile.${extension}`;
+          
+          submitData.append('foto', blob, fileName);
+          console.log('Foto berhasil dikonversi ke blob:', blob.size, 'bytes');
+        } catch (fotoError) {
+          console.warn('Error processing foto:', fotoError);
+          // Continue without foto if there's an error
+        }
+      } else {
+        console.log('Tidak ada foto yang dipilih atau format tidak valid');
+      }
+
+      console.log('Data yang akan dikirim ke API:');
+      for (let pair of submitData.entries()) {
+        console.log(pair[0], pair[1] instanceof Blob ? `File: ${pair[1].size} bytes` : pair[1]);
+      }
+
+      const response = await retryFetch('https://dbanggota.syahrulramadhan.site/api/member', {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -189,10 +227,25 @@ export default function MembersPage() {
         body: submitData,
       });
 
+      const responseData = await response.json();
+      console.log('Response dari API:', responseData);
+
+      if (!response.ok) {
+        throw new Error(responseData.message || 'Gagal menambah anggota');
+      }
+
       await fetchMembers();
       setShowAddModal(false);
+      
+      // Show success message
+      alert('Anggota berhasil ditambahkan!');
+      
     } catch (err) {
-      setError(err.message.includes('login kembali') ? err.message : 'Gagal menambah anggota.');
+      console.error('Error adding member:', err);
+      const errorMessage = err.message.includes('login kembali') 
+        ? err.message 
+        : `Gagal menambah anggota: ${err.message}`;
+      setError(errorMessage);
       if (err.message.includes('login kembali')) router.push('/');
     } finally {
       setIsLoading(false);
