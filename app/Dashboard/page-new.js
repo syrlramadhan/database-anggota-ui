@@ -111,11 +111,11 @@ export default function DashboardPage() {
     <MainLayout>
       <div className="space-y-6">
         {/* Welcome Banner */}
-        <div className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl p-8 text-white">
+        <div className="bg-gradient-to-r from-blue-600 to-blue-800 rounded-lg p-6 text-white">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center">
             <div>
-              <h1 className="text-3xl font-bold mb-2">Selamat Datang di Dashboard</h1>
-              <p className="text-blue-100 text-lg">
+              <h1 className="text-2xl font-bold mb-2">Selamat Datang di Dashboard</h1>
+              <p className="text-blue-100">
                 Kelola data anggota dengan mudah dan efisien
               </p>
             </div>
@@ -136,7 +136,7 @@ export default function DashboardPage() {
           {stats.map((stat, index) => {
             const Icon = stat.icon;
             return (
-              <div key={index} className="bg-white rounded-xl shadow-sm p-6 border-l-4 border-blue-500 hover:shadow-md transition-shadow">
+              <div key={index} className="bg-white rounded-lg p-6 shadow-sm border border-gray-200">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium text-gray-600 mb-1">
@@ -155,8 +155,8 @@ export default function DashboardPage() {
                       <span className="text-xs text-gray-500 ml-1">dari bulan lalu</span>
                     </div>
                   </div>
-                  <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                    <Icon className="w-6 h-6 text-blue-600" />
+                  <div className={`w-12 h-12 rounded-lg ${stat.color} flex items-center justify-center`}>
+                    <Icon className="w-6 h-6 text-white" />
                   </div>
                 </div>
               </div>
