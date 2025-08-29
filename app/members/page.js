@@ -121,15 +121,17 @@ export default function MembersPage() {
       const data = await response.json();
       if (!data.data || !Array.isArray(data.data)) throw new Error('Struktur respons API tidak valid.');
 
+      console.log('Sample member data:', data.data[0]); // Log sample data untuk debug
+
       setMembersData(
         data.data
-          .filter((member) => member.id)
+          .filter((member) => member.id_member)
           .map((member) => ({
-            id: member.id,
+            id: member.id_member,
             name: member.nama || 'N/A',
             nra: member.nra || 'N/A',
             email: member.email || 'N/A',
-            nomor_hp: member.nomor_hp || 'N/A',
+            nomorTelepon: member.nomor_hp || 'N/A',
             avatar: (member.nama || 'NA')
               .split(' ')
               .map((word) => word[0])
@@ -138,10 +140,10 @@ export default function MembersPage() {
               .toUpperCase(),
             foto: member.foto || null,
             angkatan: member.angkatan || 'N/A',
-            status_keanggotaan: member.status_keanggotaan || 'N/A',
+            statusKeanggotaan: member.status_keanggotaan || 'N/A',
             jurusan: member.jurusan || 'N/A',
-            tanggal_dikukuhkan: member.tanggal_dikukuhkan ? formatDateToDDMMYYYY(member.tanggal_dikukuhkan) : 'N/A',
-            key: member.id,
+            tanggalDikukuhkan: member.tanggal_dikukuhkan || 'N/A',
+            key: member.id_member,
           }))
       );
     } catch (err) {
@@ -173,7 +175,7 @@ export default function MembersPage() {
     else if (!ALLOWED_STATUSES.includes(formData.status_keanggotaan))
       errors.status_keanggotaan = `Status harus salah satu dari: ${ALLOWED_STATUSES.join(', ')}`;
     if (!formData.jurusan) errors.jurusan = 'Jurusan wajib dipilih';
-    // Tanggal dikukuhkan bersifat optional, jadi tidak perlu validasi wajib
+    // tanggal_dikukuhkan bersifat optional, tidak wajib diisi
     return errors;
   };
 
@@ -211,13 +213,11 @@ export default function MembersPage() {
       formDataToSend.append('nra', formData.nra.trim());
       formDataToSend.append('angkatan', formData.angkatan.trim());
       formDataToSend.append('status_keanggotaan', formData.status_keanggotaan);
-      formDataToSend.append('jurusan', formData.jurusan.trim());
+      formDataToSend.append('jurusan', formData.jurusan);
       
-      // Format dan validasi tanggal hanya jika diisi (opsional)
-      if (formData.tanggal_dikukuhkan) {
+      // Tanggal dikukuhkan optional - hanya kirim jika diisi
+      if (formData.tanggal_dikukuhkan.trim()) {
         const formattedDate = formatDateToDDMMYYYY(formData.tanggal_dikukuhkan);
-        console.log('Original date:', formData.tanggal_dikukuhkan);
-        console.log('Formatted date:', formattedDate);
         formDataToSend.append('tanggal_dikukuhkan', formattedDate);
       }
       
@@ -227,8 +227,8 @@ export default function MembersPage() {
         nra: formData.nra.trim(),
         angkatan: formData.angkatan.trim(),
         status_keanggotaan: formData.status_keanggotaan,
-        jurusan: formData.jurusan.trim(),
-        tanggal_dikukuhkan: formData.tanggal_dikukuhkan ? formatDateToDDMMYYYY(formData.tanggal_dikukuhkan) : null
+        jurusan: formData.jurusan,
+        tanggal_dikukuhkan: formData.tanggal_dikukuhkan.trim() ? formatDateToDDMMYYYY(formData.tanggal_dikukuhkan) : 'Tidak diisi'
       });
 
       if (formData.foto && formData.foto.startsWith('blob:')) {
@@ -283,15 +283,13 @@ export default function MembersPage() {
       formDataToSend.append('nra', formData.nra.trim());
       formDataToSend.append('angkatan', formData.angkatan.trim());
       formDataToSend.append('status_keanggotaan', formData.status_keanggotaan);
-      formDataToSend.append('jurusan', formData.jurusan.trim());
+      formDataToSend.append('jurusan', formData.jurusan);
       
-      // Format dan validasi tanggal hanya jika diisi (opsional)
-      if (formData.tanggal_dikukuhkan) {
-        const formattedDate = formatDateToDDMMYYYY(formData.tanggal_dikukuhkan);
-        console.log('Update - Original date:', formData.tanggal_dikukuhkan);
-        console.log('Update - Formatted date:', formattedDate);
-        formDataToSend.append('tanggal_dikukuhkan', formattedDate);
-      }
+      // Format dan validasi tanggal sebelum dikirim
+      const formattedDate = formatDateToDDMMYYYY(formData.tanggal_dikukuhkan);
+      console.log('Update - Original date:', formData.tanggal_dikukuhkan);
+      console.log('Update - Formatted date:', formattedDate);
+      formDataToSend.append('TanggalDikukuhkan', formattedDate);
 
       if (formData.foto && formData.foto.startsWith('blob:')) {
         const response = await fetch(formData.foto);
@@ -372,13 +370,16 @@ export default function MembersPage() {
 
       setSelectedMemberId(member.id);
       setFormData({
-        nama: selectedMember.nama || '',
-        nra: selectedMember.nra || '',
-        foto: selectedMember.foto || null,
-        angkatan: selectedMember.angkatan || '',
-        status_keanggotaan: selectedMember.status_keanggotaan || '',
-        jurusan: selectedMember.jurusan || '',
-        tanggal_dikukuhkan: selectedMember.tanggal_dikukuhkan ? selectedMember.tanggal_dikukuhkan.split('-').reverse().join('-') : '',
+        nama: selectedMember.Nama || '',
+        email: selectedMember.Email || '',
+        nra: selectedMember.NRA || '',
+        nomor_hp: selectedMember.NoHP || '',
+        password: '',
+        foto: selectedMember.Foto || null,
+        angkatan: selectedMember.Angkatan || '',
+        status_keanggotaan: selectedMember.StatusKeanggotaan || '',
+        jurusan: selectedMember.Jurusan || '',
+        tanggal_dikukuhkan: selectedMember.TanggalDikukuhkan ? selectedMember.TanggalDikukuhkan.split('-').reverse().join('-') : '',
       });
       setFormErrors({});
       setPhotoError(null);
@@ -450,7 +451,7 @@ export default function MembersPage() {
   };
 
   const filteredMembers = membersData.filter((member) =>
-    ['name', 'email', 'nra', 'angkatan', 'status_keanggotaan', 'jurusan', 'tanggal_dikukuhkan'].some((key) =>
+    ['name', 'nra', 'angkatan', 'status_keanggotaan', 'jurusan', 'tanggal_dikukuhkan'].some((key) =>
       member[key]?.toLowerCase().includes(searchTerm.toLowerCase())
     )
   );
@@ -564,7 +565,7 @@ export default function MembersPage() {
               <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
               <input
                 type="text"
-                placeholder="Cari anggota berdasarkan nama, email, NRA, atau lainnya"
+                placeholder="Cari anggota berdasarkan nama, NRA, angkatan, status, atau jurusan"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent w-full sm:w-80"
@@ -622,7 +623,7 @@ export default function MembersPage() {
                               <div className="flex items-center space-x-3">
                                 {member.foto ? (
                                   <img
-                                    src={member.foto}
+                                    src={`https://dbanggota.syahrulramadhan.site/uploads/${member.foto}`}
                                     alt={`Foto ${member.name}`}
                                     className="w-8 h-8 rounded-full object-cover border border-gray-200"
                                     onError={(e) => {
@@ -641,11 +642,11 @@ export default function MembersPage() {
                             </td>
                             <td className="py-4 px-6 text-sm text-gray-600">{member.nra}</td>
                             <td className="py-4 px-6 text-sm text-blue-600">{member.email}</td>
-                            <td className="py-4 px-6 text-sm text-gray-600">{member.nomor_hp}</td>
+                            <td className="py-4 px-6 text-sm text-gray-600">{member.nomorTelepon}</td>
                             <td className="py-4 px-6 text-sm text-gray-600">{member.angkatan}</td>
-                            <td className="py-4 px-6 text-sm text-gray-600">{getStatusLabel(member.status_keanggotaan)}</td>
+                            <td className="py-4 px-6 text-sm text-gray-600">{getStatusLabel(member.statusKeanggotaan)}</td>
                             <td className="py-4 px-6 text-sm text-gray-600">{member.jurusan}</td>
-                            <td className="py-4 px-6 text-sm text-gray-600">{member.tanggal_dikukuhkan}</td>
+                            <td className="py-4 px-6 text-sm text-gray-600">{member.tanggalDikukuhkan}</td>
                             <td className="py-4 px-6">
                               <button
                                 onClick={(e) => {
@@ -701,7 +702,7 @@ export default function MembersPage() {
                             />
                           ) : selectedMember.foto ? (
                             <img
-                              src={selectedMember.foto}
+                              src={`https://dbanggota.syahrulramadhan.site/storage/photos/${selectedMember.foto}`}
                               alt={`Foto ${selectedMember.name}`}
                               className="w-24 h-24 rounded-full object-cover border-4 border-gray-200 shadow-sm"
                               onError={(e) => {
@@ -747,12 +748,6 @@ export default function MembersPage() {
                             </label>
                             <p className="text-xs text-gray-400 mt-2">Format: JPEG, PNG, GIF (Max: 2MB)</p>
                           </div>
-                          {fotoError && (
-                            <p className="text-sm text-red-500 mt-1 flex items-center">
-                              <span className="w-4 h-4 mr-1">⚠️</span>
-                              {fotoError}
-                            </p>
-                          )}
                         </div>
                         <div>
                           <label className="block text-sm font-semibold text-gray-700 mb-2">Nama Lengkap</label>
@@ -771,27 +766,6 @@ export default function MembersPage() {
                             <p id="nama-error" className="text-sm text-red-500 mt-1 flex items-center">
                               <span className="w-4 h-4 mr-1">⚠️</span>
                               {formErrors.nama}
-                            </p>
-                          )}
-                        </div>
-                        <div>
-                          <label className="block text-sm font-semibold text-gray-700 mb-2">Email</label>
-                          <input
-                            name="email"
-                            type="email"
-                            value={formData.email}
-                            onChange={handleInputChange}
-                            className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors ${
-                              formErrors.email ? 'border-red-500 bg-red-50' : 'border-gray-200 bg-white'
-                            }`}
-                            required
-                            aria-invalid={formErrors.email ? 'true' : 'false'}
-                            aria-describedby={formErrors.email ? 'email-error' : undefined}
-                          />
-                          {formErrors.email && (
-                            <p id="email-error" className="text-sm text-red-500 mt-1 flex items-center">
-                              <span className="w-4 h-4 mr-1">⚠️</span>
-                              {formErrors.email}
                             </p>
                           )}
                         </div>
@@ -817,28 +791,6 @@ export default function MembersPage() {
                             <p id="nra-error" className="text-sm text-red-500 mt-1 flex items-center">
                               <span className="w-4 h-4 mr-1">⚠️</span>
                               {formErrors.nra}
-                            </p>
-                          )}
-                        </div>
-                        <div>
-                          <label className="block text-sm font-semibold text-gray-700 mb-2">Nomor Telepon</label>
-                          <input
-                            name="nomor_hp"
-                            type="tel"
-                            value={formData.nomor_hp}
-                            onChange={handleInputChange}
-                            className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors ${
-                              formErrors.nomor_hp ? 'border-red-500 bg-red-50' : 'border-gray-200 bg-white'
-                            }`}
-                            required
-                            aria-invalid={formErrors.nomor_hp ? 'true' : 'false'}
-                            aria-describedby={formErrors.nomor_hp ? 'nomor_hp-error' : undefined}
-                            placeholder="contoh: +62812345678"
-                          />
-                          {formErrors.nomor_hp && (
-                            <p id="nomor_hp-error" className="text-sm text-red-500 mt-1 flex items-center">
-                              <span className="w-4 h-4 mr-1">⚠️</span>
-                              {formErrors.nomor_hp}
                             </p>
                           )}
                         </div>
@@ -1016,22 +968,35 @@ export default function MembersPage() {
                     </button>
                   </div>
                   
-                  {/* Info Box */}
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-                    <div className="flex items-start">
-                      <div className="flex-shrink-0">
-                        <svg className="h-5 w-5 text-blue-400" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                        </svg>
-                      </div>
-                      <div className="ml-3">
-                        <h3 className="text-sm font-medium text-blue-800">Informasi Pembuatan Akun</h3>
-                        <div className="mt-1 text-sm text-blue-700">
-                          <p>Setelah anggota dibuat, sistem akan generate token login untuk anggota tersebut.</p>
-                          <p>Anggota dapat login menggunakan token tersebut melalui endpoint <code className="bg-blue-100 px-1 rounded">/api/member/token</code></p>
-                          <p className="mt-1 font-medium">Data lain seperti email, nomor HP, foto, dan password dapat dilengkapi oleh anggota setelah login.</p>
-                        </div>
-                      </div>
+                  {/* Informasi Workflow Token */}
+                  <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                    <h3 className="text-sm font-semibold text-blue-800 mb-3">Informasi Penting</h3>
+                    
+                    <div className="text-sm text-blue-700 space-y-3">
+                      <p>
+                        Form ini digunakan untuk membuat akun anggota baru dengan data dasar. Admin hanya perlu mengisi 
+                        nama, NRA, angkatan, status keanggotaan, jurusan, foto (opsional), dan tanggal dikukuhkan (opsional).
+                      </p>
+                      
+                      <p>
+                        Setelah akun dibuat, sistem akan menghasilkan token login khusus untuk anggota baru tersebut. 
+                        Token ini berfungsi sebagai kunci untuk login pertama kali dan harus diberikan kepada anggota yang bersangkutan.
+                      </p>
+                      
+                      <p>
+                        Anggota akan menggunakan token tersebut untuk login pertama kali, kemudian diminta untuk melengkapi 
+                        profil mereka seperti email, nomor telepon, password, dan data pribadi lainnya.
+                      </p>
+                      
+                      <p>
+                        Setelah profil dilengkapi dan password dibuat, token akan otomatis dihapus dari sistem. 
+                        Untuk login selanjutnya, anggota akan menggunakan NRA dan password yang telah mereka buat.
+                      </p>
+                      
+                      <p className="text-xs italic">
+                        Catatan: Sistem ini memungkinkan admin untuk fokus mengelola data dasar anggota, 
+                        sementara anggota sendiri yang bertanggung jawab melengkapi dan mengelola data pribadi mereka.
+                      </p> 
                     </div>
                   </div>
 
@@ -1080,12 +1045,6 @@ export default function MembersPage() {
                         </label>
                         <p className="text-xs text-gray-400 mt-2">Format: JPEG, PNG, GIF (Max: 2MB)</p>
                       </div>
-                      {fotoError && (
-                        <p className="text-sm text-red-500 mt-1 flex items-center">
-                          <span className="w-4 h-4 mr-1">⚠️</span>
-                          {fotoError}
-                        </p>
-                      )}
                     </div>
                     <div>
                       <label className="block text-sm font-semibold text-gray-700 mb-2">
@@ -1114,7 +1073,7 @@ export default function MembersPage() {
                     <div>
                       <label className="block text-sm font-semibold text-gray-700 mb-2">
                         Nomor Anggota (NRA) <span className="text-red-500">*</span>
-                      </label>
+                      </label> 
                       <input
                         type="text"
                         name="nra"
@@ -1223,7 +1182,7 @@ export default function MembersPage() {
                     </div>
                     <div>
                       <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        Tanggal Dikukuhkan <span className="text-red-500">*</span>
+                        Tanggal Dikukuhkan <span className="text-gray-500">(Opsional)</span>
                       </label>
                       <input
                         type="date"
@@ -1233,7 +1192,6 @@ export default function MembersPage() {
                         className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors ${
                           formErrors.tanggal_dikukuhkan ? 'border-red-500 bg-red-50' : 'border-gray-200 bg-white'
                         }`}
-                        required
                         aria-invalid={formErrors.tanggal_dikukuhkan ? 'true' : 'false'}
                         aria-describedby={formErrors.tanggal_dikukuhkan ? 'tanggal_dikukuhkan-error-add' : undefined}
                       />
@@ -1243,7 +1201,7 @@ export default function MembersPage() {
                           {formErrors.tanggal_dikukuhkan}
                         </p>
                       )}
-                      <p className="text-xs text-gray-500 mt-1">Tanggal dikukuhkan bersifat opsional. Format: YYYY-MM-DD (akan dikonversi ke DD-MM-YYYY)</p>
+                      <p className="text-xs text-gray-500 mt-1">Format: YYYY-MM-DD (akan dikonversi ke DD-MM-YYYY)</p>
                     </div>
                     <div className="flex space-x-3 pt-6 border-t">
                       <button
