@@ -65,7 +65,7 @@ export default function LoginPage() {
     };
 
     try {
-      const response = await retryFetch(`${config.api.url}/member/login`, {
+      const response = await retryFetch(`${config.api.url}/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -198,7 +198,25 @@ export default function LoginPage() {
             {isLoading ? 'Memproses...' : 'Masuk'}
           </button>
         </form>
-        <div className="text-center mt-6">
+        <div className="text-center mt-6 space-y-3">
+          <div className="flex items-center">
+            <div className="flex-1 border-t border-gray-200"></div>
+            <span className="px-4 text-xs text-gray-500 bg-white">atau</span>
+            <div className="flex-1 border-t border-gray-200"></div>
+          </div>
+          
+          <button
+            type="button"
+            className="w-full bg-purple-500 hover:bg-purple-600 text-white font-medium py-3 px-4 rounded-lg transition-colors duration-200 flex items-center justify-center"
+            onClick={() => router.push('/login-token')}
+            disabled={isLoading}
+          >
+            <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+            </svg>
+            Login dengan Token
+          </button>
+          
           <p className="text-gray-500 text-sm">
             Belum punya akun?{' '}
             <button

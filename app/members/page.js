@@ -151,7 +151,7 @@ export default function MembersPage() {
         throw new Error('Token tidak ditemukan');
       }
 
-      const response = await fetch(`${config.API_BASE_URL}/api/members/${memberId}`, {
+      const response = await fetch(`${config.API_BASE_URL}/api/member/${memberId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

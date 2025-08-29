@@ -7,7 +7,7 @@ const config = {
   },
   endpoints: {
     member: '/member',
-    memberProfile: '/member/profile',
+    memberProfile: '/profile',
     uploads: (filename) => `${config.api.uploadsUrl}/${filename}`,
   }
 };

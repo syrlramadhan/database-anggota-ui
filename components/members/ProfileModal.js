@@ -46,7 +46,7 @@ export default function ProfileModal({ isOpen, onClose }) {
         throw new Error('Token tidak ditemukan');
       }
 
-      const response = await fetch(`${config.API_BASE_URL}/api/members/${user.id || user.id_member}`, {
+      const response = await fetch(`${config.API_BASE_URL}/api/member/${user.id || user.id_member}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
