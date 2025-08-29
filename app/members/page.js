@@ -14,10 +14,7 @@ export default function MembersPage() {
   const [error, setError] = useState(null);
   const [formData, setFormData] = useState({
     nama: '',
-    email: '',
     nra: '',
-    nomor_hp: '',
-    password: '',
     foto: null,
     angkatan: '',
     status_keanggotaan: '',
@@ -124,17 +121,15 @@ export default function MembersPage() {
       const data = await response.json();
       if (!data.data || !Array.isArray(data.data)) throw new Error('Struktur respons API tidak valid.');
 
-      console.log('Sample member data:', data.data[0]); // Log sample data untuk debug
-
       setMembersData(
         data.data
-          .filter((member) => member.id_member)
+          .filter((member) => member.id)
           .map((member) => ({
-            id: member.id_member,
+            id: member.id,
             name: member.nama || 'N/A',
             nra: member.nra || 'N/A',
             email: member.email || 'N/A',
-            nomorTelepon: member.nomor_hp || 'N/A',
+            nomor_hp: member.nomor_hp || 'N/A',
             avatar: (member.nama || 'NA')
               .split(' ')
               .map((word) => word[0])
@@ -143,10 +138,10 @@ export default function MembersPage() {
               .toUpperCase(),
             foto: member.foto || null,
             angkatan: member.angkatan || 'N/A',
-            statusKeanggotaan: member.status_keanggotaan || 'N/A',
+            status_keanggotaan: member.status_keanggotaan || 'N/A',
             jurusan: member.jurusan || 'N/A',
-            tanggalDikukuhkan: member.tanggal_dikukuhkan || 'N/A',
-            key: member.id_member,
+            tanggal_dikukuhkan: member.tanggal_dikukuhkan ? formatDateToDDMMYYYY(member.tanggal_dikukuhkan) : 'N/A',
+            key: member.id,
           }))
       );
     } catch (err) {
@@ -170,22 +165,15 @@ export default function MembersPage() {
   const validateForm = () => {
     const errors = {};
     if (!formData.nama.trim()) errors.nama = 'Nama wajib diisi';
-    if (!formData.email.trim()) errors.email = 'Email wajib diisi';
-    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) errors.email = 'Format email tidak valid';
     if (!formData.nra.trim()) errors.nra = 'Nomor Anggota wajib diisi';
     else if (!/^\d{2}\.\d{2}\.\d{3}$/.test(formData.nra)) errors.nra = 'Format NRA harus XX.XX.XXX (contoh: 13.24.005)';
-    if (!formData.nomor_hp.trim()) errors.nomor_hp = 'Nomor Telepon wajib diisi';
-    else if (!/^(\+\d{1,3}[- ]?)?\d{10,15}$/.test(formData.nomor_hp.replace(/\s/g, '')))
-      errors.nomor_hp = 'Nomor telepon tidak valid (10-15 digit)';
-    if (!selectedMemberId && !formData.password) errors.password = 'Kata sandi wajib diisi untuk anggota baru';
-    else if (formData.password && formData.password.length < 6) errors.password = 'Kata sandi minimal 6 karakter';
     if (!formData.angkatan.trim()) errors.angkatan = 'Angkatan wajib diisi';
     else if (formData.angkatan.length > 4) errors.angkatan = 'Angkatan maksimum 4 karakter';
     if (!formData.status_keanggotaan) errors.status_keanggotaan = 'Status keanggotaan wajib dipilih';
     else if (!ALLOWED_STATUSES.includes(formData.status_keanggotaan))
       errors.status_keanggotaan = `Status harus salah satu dari: ${ALLOWED_STATUSES.join(', ')}`;
     if (!formData.jurusan) errors.jurusan = 'Jurusan wajib dipilih';
-    if (!formData.tanggal_dikukuhkan) errors.tanggal_dikukuhkan = 'Tanggal dikukuhkan wajib diisi';
+    // Tanggal dikukuhkan bersifat optional, jadi tidak perlu validasi wajib
     return errors;
   };
 
@@ -220,33 +208,28 @@ export default function MembersPage() {
 
       const formDataToSend = new FormData();
       formDataToSend.append('nama', formData.nama.trim());
-      formDataToSend.append('email', formData.email.trim());
       formDataToSend.append('nra', formData.nra.trim());
-      formDataToSend.append('nomor_hp', formData.nomor_hp.trim());
-      formDataToSend.append('password', formData.password);
       formDataToSend.append('angkatan', formData.angkatan.trim());
       formDataToSend.append('status_keanggotaan', formData.status_keanggotaan);
-      formDataToSend.append('jurusan', formData.jurusan);
+      formDataToSend.append('jurusan', formData.jurusan.trim());
       
-      // Format dan validasi tanggal sebelum dikirim
-      const formattedDate = formatDateToDDMMYYYY(formData.tanggal_dikukuhkan);
-      console.log('Original date:', formData.tanggal_dikukuhkan);
-      console.log('Formatted date:', formattedDate);
+      // Format dan validasi tanggal hanya jika diisi (opsional)
+      if (formData.tanggal_dikukuhkan) {
+        const formattedDate = formatDateToDDMMYYYY(formData.tanggal_dikukuhkan);
+        console.log('Original date:', formData.tanggal_dikukuhkan);
+        console.log('Formatted date:', formattedDate);
+        formDataToSend.append('tanggal_dikukuhkan', formattedDate);
+      }
       
       // Debug: tampilkan semua data yang akan dikirim
       console.log('FormData yang akan dikirim:', {
         nama: formData.nama.trim(),
-        email: formData.email.trim(),
         nra: formData.nra.trim(),
-        nomor_hp: formData.nomor_hp.trim(),
-        password: formData.password,
         angkatan: formData.angkatan.trim(),
         status_keanggotaan: formData.status_keanggotaan,
-        jurusan: formData.jurusan,
-        tanggal_dikukuhkan: formattedDate
+        jurusan: formData.jurusan.trim(),
+        tanggal_dikukuhkan: formData.tanggal_dikukuhkan ? formatDateToDDMMYYYY(formData.tanggal_dikukuhkan) : null
       });
-      
-      formDataToSend.append('tanggal_dikukuhkan', formattedDate);
 
       if (formData.foto && formData.foto.startsWith('blob:')) {
         const response = await fetch(formData.foto);
@@ -297,19 +280,18 @@ export default function MembersPage() {
 
       const formDataToSend = new FormData();
       formDataToSend.append('nama', formData.nama.trim());
-      formDataToSend.append('email', formData.email.trim());
       formDataToSend.append('nra', formData.nra.trim());
-      formDataToSend.append('nomor_hp', formData.nomor_hp.trim());
-      if (formData.password) formDataToSend.append('password', formData.password);
       formDataToSend.append('angkatan', formData.angkatan.trim());
       formDataToSend.append('status_keanggotaan', formData.status_keanggotaan);
-      formDataToSend.append('jurusan', formData.jurusan);
+      formDataToSend.append('jurusan', formData.jurusan.trim());
       
-      // Format dan validasi tanggal sebelum dikirim
-      const formattedDate = formatDateToDDMMYYYY(formData.tanggal_dikukuhkan);
-      console.log('Update - Original date:', formData.tanggal_dikukuhkan);
-      console.log('Update - Formatted date:', formattedDate);
-      formDataToSend.append('TanggalDikukuhkan', formattedDate);
+      // Format dan validasi tanggal hanya jika diisi (opsional)
+      if (formData.tanggal_dikukuhkan) {
+        const formattedDate = formatDateToDDMMYYYY(formData.tanggal_dikukuhkan);
+        console.log('Update - Original date:', formData.tanggal_dikukuhkan);
+        console.log('Update - Formatted date:', formattedDate);
+        formDataToSend.append('tanggal_dikukuhkan', formattedDate);
+      }
 
       if (formData.foto && formData.foto.startsWith('blob:')) {
         const response = await fetch(formData.foto);
@@ -390,16 +372,13 @@ export default function MembersPage() {
 
       setSelectedMemberId(member.id);
       setFormData({
-        nama: selectedMember.Nama || '',
-        email: selectedMember.Email || '',
-        nra: selectedMember.NRA || '',
-        nomor_hp: selectedMember.NoHP || '',
-        password: '',
-        foto: selectedMember.Foto || null,
-        angkatan: selectedMember.Angkatan || '',
-        status_keanggotaan: selectedMember.StatusKeanggotaan || '',
-        jurusan: selectedMember.Jurusan || '',
-        tanggal_dikukuhkan: selectedMember.TanggalDikukuhkan ? selectedMember.TanggalDikukuhkan.split('-').reverse().join('-') : '',
+        nama: selectedMember.nama || '',
+        nra: selectedMember.nra || '',
+        foto: selectedMember.foto || null,
+        angkatan: selectedMember.angkatan || '',
+        status_keanggotaan: selectedMember.status_keanggotaan || '',
+        jurusan: selectedMember.jurusan || '',
+        tanggal_dikukuhkan: selectedMember.tanggal_dikukuhkan ? selectedMember.tanggal_dikukuhkan.split('-').reverse().join('-') : '',
       });
       setFormErrors({});
       setPhotoError(null);
@@ -449,10 +428,7 @@ export default function MembersPage() {
   const resetForm = () => {
     setFormData({
       nama: '',
-      email: '',
       nra: '',
-      nomor_hp: '',
-      password: '',
       foto: null,
       angkatan: '',
       status_keanggotaan: '',
@@ -474,7 +450,7 @@ export default function MembersPage() {
   };
 
   const filteredMembers = membersData.filter((member) =>
-    ['name', 'email', 'nra', 'angkatan', 'statusKeanggotaan', 'jurusan', 'tanggalDikukuhkan'].some((key) =>
+    ['name', 'email', 'nra', 'angkatan', 'status_keanggotaan', 'jurusan', 'tanggal_dikukuhkan'].some((key) =>
       member[key]?.toLowerCase().includes(searchTerm.toLowerCase())
     )
   );
@@ -646,7 +622,7 @@ export default function MembersPage() {
                               <div className="flex items-center space-x-3">
                                 {member.foto ? (
                                   <img
-                                    src={`https://dbanggota.syahrulramadhan.site/uploads/${member.foto}`}
+                                    src={member.foto}
                                     alt={`Foto ${member.name}`}
                                     className="w-8 h-8 rounded-full object-cover border border-gray-200"
                                     onError={(e) => {
@@ -665,11 +641,11 @@ export default function MembersPage() {
                             </td>
                             <td className="py-4 px-6 text-sm text-gray-600">{member.nra}</td>
                             <td className="py-4 px-6 text-sm text-blue-600">{member.email}</td>
-                            <td className="py-4 px-6 text-sm text-gray-600">{member.nomorTelepon}</td>
+                            <td className="py-4 px-6 text-sm text-gray-600">{member.nomor_hp}</td>
                             <td className="py-4 px-6 text-sm text-gray-600">{member.angkatan}</td>
-                            <td className="py-4 px-6 text-sm text-gray-600">{getStatusLabel(member.statusKeanggotaan)}</td>
+                            <td className="py-4 px-6 text-sm text-gray-600">{getStatusLabel(member.status_keanggotaan)}</td>
                             <td className="py-4 px-6 text-sm text-gray-600">{member.jurusan}</td>
-                            <td className="py-4 px-6 text-sm text-gray-600">{member.tanggalDikukuhkan}</td>
+                            <td className="py-4 px-6 text-sm text-gray-600">{member.tanggal_dikukuhkan}</td>
                             <td className="py-4 px-6">
                               <button
                                 onClick={(e) => {
@@ -725,7 +701,7 @@ export default function MembersPage() {
                             />
                           ) : selectedMember.foto ? (
                             <img
-                              src={`https://dbanggota.syahrulramadhan.site/storage/photos/${selectedMember.foto}`}
+                              src={selectedMember.foto}
                               alt={`Foto ${selectedMember.name}`}
                               className="w-24 h-24 rounded-full object-cover border-4 border-gray-200 shadow-sm"
                               onError={(e) => {
@@ -771,6 +747,12 @@ export default function MembersPage() {
                             </label>
                             <p className="text-xs text-gray-400 mt-2">Format: JPEG, PNG, GIF (Max: 2MB)</p>
                           </div>
+                          {fotoError && (
+                            <p className="text-sm text-red-500 mt-1 flex items-center">
+                              <span className="w-4 h-4 mr-1">⚠️</span>
+                              {fotoError}
+                            </p>
+                          )}
                         </div>
                         <div>
                           <label className="block text-sm font-semibold text-gray-700 mb-2">Nama Lengkap</label>
@@ -1033,6 +1015,26 @@ export default function MembersPage() {
                       <X className="w-6 h-6" />
                     </button>
                   </div>
+                  
+                  {/* Info Box */}
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                    <div className="flex items-start">
+                      <div className="flex-shrink-0">
+                        <svg className="h-5 w-5 text-blue-400" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                        </svg>
+                      </div>
+                      <div className="ml-3">
+                        <h3 className="text-sm font-medium text-blue-800">Informasi Pembuatan Akun</h3>
+                        <div className="mt-1 text-sm text-blue-700">
+                          <p>Setelah anggota dibuat, sistem akan generate token login untuk anggota tersebut.</p>
+                          <p>Anggota dapat login menggunakan token tersebut melalui endpoint <code className="bg-blue-100 px-1 rounded">/api/member/token</code></p>
+                          <p className="mt-1 font-medium">Data lain seperti email, nomor HP, foto, dan password dapat dilengkapi oleh anggota setelah login.</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
                   <form onSubmit={handleAddMember} className="space-y-6" noValidate>
                     <div>
                       <label className="block text-sm font-semibold text-gray-700 mb-2">Foto Profil</label>
@@ -1078,6 +1080,12 @@ export default function MembersPage() {
                         </label>
                         <p className="text-xs text-gray-400 mt-2">Format: JPEG, PNG, GIF (Max: 2MB)</p>
                       </div>
+                      {fotoError && (
+                        <p className="text-sm text-red-500 mt-1 flex items-center">
+                          <span className="w-4 h-4 mr-1">⚠️</span>
+                          {fotoError}
+                        </p>
+                      )}
                     </div>
                     <div>
                       <label className="block text-sm font-semibold text-gray-700 mb-2">
@@ -1100,30 +1108,6 @@ export default function MembersPage() {
                         <p id="nama-error-add" className="text-sm text-red-500 mt-1 flex items-center">
                           <span className="w-4 h-4 mr-1">⚠️</span>
                           {formErrors.nama}
-                        </p>
-                      )}
-                    </div>
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        Email <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="email"
-                        name="email"
-                        value={formData.email}
-                        onChange={handleInputChange}
-                        className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors ${
-                          formErrors.email ? 'border-red-500 bg-red-50' : 'border-gray-200 bg-white'
-                        }`}
-                        required
-                        aria-invalid={formErrors.email ? 'true' : 'false'}
-                        aria-describedby={formErrors.email ? 'email-error-add' : undefined}
-                        placeholder="contoh@email.com"
-                      />
-                      {formErrors.email && (
-                        <p id="email-error-add" className="text-sm text-red-500 mt-1 flex items-center">
-                          <span className="w-4 h-4 mr-1">⚠️</span>
-                          {formErrors.email}
                         </p>
                       )}
                     </div>
@@ -1152,30 +1136,6 @@ export default function MembersPage() {
                         <p id="nra-error-add" className="text-sm text-red-500 mt-1 flex items-center">
                           <span className="w-4 h-4 mr-1">⚠️</span>
                           {formErrors.nra}
-                        </p>
-                      )}
-                    </div>
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        Nomor Telepon <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="tel"
-                        name="nomor_hp"
-                        value={formData.nomor_hp}
-                        onChange={handleInputChange}
-                        className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors ${
-                          formErrors.nomor_hp ? 'border-red-500 bg-red-50' : 'border-gray-200 bg-white'
-                        }`}
-                        required
-                        aria-invalid={formErrors.nomor_hp ? 'true' : 'false'}
-                        aria-describedby={formErrors.nomor_hp ? 'nomor_hp-error-add' : undefined}
-                        placeholder="contoh: +62812345678"
-                      />
-                      {formErrors.nomor_hp && (
-                        <p id="nomor_hp-error-add" className="text-sm text-red-500 mt-1 flex items-center">
-                          <span className="w-4 h-4 mr-1">⚠️</span>
-                          {formErrors.nomor_hp}
                         </p>
                       )}
                     </div>
@@ -1283,32 +1243,7 @@ export default function MembersPage() {
                           {formErrors.tanggal_dikukuhkan}
                         </p>
                       )}
-                      <p className="text-xs text-gray-500 mt-1">Format: YYYY-MM-DD (akan dikonversi ke DD-MM-YYYY)</p>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        Kata Sandi <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="password"
-                        name="password"
-                        value={formData.password}
-                        onChange={handleInputChange}
-                        className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors ${
-                          formErrors.password ? 'border-red-500 bg-red-50' : 'border-gray-200 bg-white'
-                        }`}
-                        required
-                        aria-invalid={formErrors.password ? 'true' : 'false'}
-                        aria-describedby={formErrors.password ? 'password-error-add' : undefined}
-                        placeholder="Masukkan kata sandi"
-                      />
-                      {formErrors.password && (
-                        <p id="password-error-add" className="text-sm text-red-500 mt-1 flex items-center">
-                          <span className="w-4 h-4 mr-1">⚠️</span>
-                          {formErrors.password}
-                        </p>
-                      )}
-                      <p className="text-xs text-gray-500 mt-1">Minimal 6 karakter</p>
+                      <p className="text-xs text-gray-500 mt-1">Tanggal dikukuhkan bersifat opsional. Format: YYYY-MM-DD (akan dikonversi ke DD-MM-YYYY)</p>
                     </div>
                     <div className="flex space-x-3 pt-6 border-t">
                       <button
