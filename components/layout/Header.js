@@ -1,13 +1,15 @@
 'use client';
 
-import { Menu, User, ChevronDown, UserIcon } from 'lucide-react';
 import { useState } from 'react';
+import { Menu, User, ChevronDown, UserIcon, Settings } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
+import ProfileModal from '../members/ProfileModal';
 import config from '../../config';
 
 export default function Header({ onToggleSidebar, isSidebarOpen }) {
   const [showDropdown, setShowDropdown] = useState(false);
-  const { user, isLoading, logout } = useAuth();
+  const [showProfileModal, setShowProfileModal] = useState(false);
+  const { user, isLoading } = useAuth();
 
   const getStatusLabel = (status) => {
     const statusMap = {
@@ -37,6 +39,11 @@ export default function Header({ onToggleSidebar, isSidebarOpen }) {
       return config.endpoints.uploads(fileName);
     }
     return config.endpoints.uploads(foto);
+  };
+
+  const handleOpenProfile = () => {
+    setShowProfileModal(true);
+    setShowDropdown(false);
   };
 
   return (
@@ -87,7 +94,10 @@ export default function Header({ onToggleSidebar, isSidebarOpen }) {
                     className="w-full h-full object-cover"
                     onError={(e) => {
                       e.target.style.display = 'none';
-                      e.target.nextSibling.style.display = 'flex';
+                      const fallback = e.target.nextSibling;
+                      if (fallback) {
+                        fallback.style.display = 'flex';
+                      }
                     }}
                   />
                 ) : (
@@ -123,6 +133,13 @@ export default function Header({ onToggleSidebar, isSidebarOpen }) {
                           src={getUserPhotoUrl(user?.foto)}
                           alt={`Foto ${user?.nama}`}
                           className="w-full h-full object-cover"
+                          onError={(e) => {
+                            e.target.style.display = 'none';
+                            const fallback = e.target.nextSibling;
+                            if (fallback) {
+                              fallback.style.display = 'flex';
+                            }
+                          }}
                         />
                       ) : (
                         <div className="w-full h-full bg-gradient-to-r from-blue-500 to-purple-500 flex items-center justify-center">
@@ -148,9 +165,12 @@ export default function Header({ onToggleSidebar, isSidebarOpen }) {
 
                 {/* Menu Items */}
                 <div className="py-1">
-                  <button className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                  <button 
+                    onClick={handleOpenProfile}
+                    className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                  >
                     <UserIcon className="w-4 h-4 mr-3" />
-                    Profil Saya
+                    Edit Profil Saya
                   </button>
                 </div>
               </div>
@@ -158,6 +178,12 @@ export default function Header({ onToggleSidebar, isSidebarOpen }) {
           </div>
         </div>
       </div>
+      
+      {/* Profile Modal */}
+      <ProfileModal 
+        isOpen={showProfileModal}
+        onClose={() => setShowProfileModal(false)}
+      />
     </header>
   );
 }

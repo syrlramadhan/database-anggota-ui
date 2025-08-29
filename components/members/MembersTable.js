@@ -1,8 +1,11 @@
 'use client';
 
+import { useState } from 'react';
 import { Search, UserPlus, Edit, Trash2 } from 'lucide-react';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
+import EditMemberModal from './EditMemberModal';
+import { useAuthorization } from '../../hooks/useAuthorization';
 import config from '../../config';
 
 export default function MembersTable({ 
@@ -12,8 +15,11 @@ export default function MembersTable({
   onAddMember, 
   onEditMember, 
   onDeleteMember,
-  isLoading = false 
+  isLoading = false
 }) {
+  const { canAddMembers, isAdmin, getUserRole, canViewMembers } = useAuthorization();
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [selectedMember, setSelectedMember] = useState(null);
   const getStatusLabel = (status) => {
     const statusMap = {
       'anggota': 'Anggota',
@@ -49,6 +55,17 @@ export default function MembersTable({
     return config.endpoints.uploads(foto);
   };
 
+  const handleEditMember = (member) => {
+    setSelectedMember(member);
+    setEditModalOpen(true);
+  };
+
+  const handleEditSubmit = async (memberId, memberData) => {
+    await onEditMember(memberId, memberData);
+    setEditModalOpen(false);
+    setSelectedMember(null);
+  };
+
   const filteredMembers = searchTerm.trim() === '' 
     ? members 
     : members.filter((member) =>
@@ -79,10 +96,19 @@ export default function MembersTable({
                 className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-500 focus:border-transparent w-full sm:w-80"
               />
             </div>
-            <Button onClick={onAddMember} className="whitespace-nowrap">
-              <UserPlus className="w-4 h-4 mr-2" />
-              Tambah Anggota
-            </Button>
+            {canAddMembers && (
+              <Button onClick={onAddMember} className="whitespace-nowrap">
+                <UserPlus className="w-4 h-4 mr-2" />
+                Tambah Anggota
+              </Button>
+            )}
+            {!canAddMembers && (
+              <div className="text-sm text-gray-500 flex items-center">
+                <span className="px-3 py-2 bg-gray-100 rounded-lg">
+                  Role: {getUserRole} (View Only)
+                </span>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -161,19 +187,21 @@ export default function MembersTable({
                   <td className="py-4 px-6">
                     <div className="flex items-center space-x-2">
                       <button
-                        onClick={() => onEditMember(member)}
+                        onClick={() => handleEditMember(member)}
                         className="p-1 text-blue-600 hover:bg-blue-50 rounded"
-                        title="Edit anggota"
+                        title={isAdmin ? "Edit anggota" : "Lihat detail anggota"}
                       >
                         <Edit className="w-4 h-4" />
                       </button>
-                      <button
-                        onClick={() => onDeleteMember(member)}
-                        className="p-1 text-red-600 hover:bg-red-50 rounded"
-                        title="Hapus anggota"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      {isAdmin && (
+                        <button
+                          onClick={() => onDeleteMember(member)}
+                          className="p-1 text-red-600 hover:bg-red-50 rounded"
+                          title="Hapus anggota"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -196,6 +224,17 @@ export default function MembersTable({
           </div>
         </div>
       )}
+
+      {/* Edit Member Modal */}
+      <EditMemberModal
+        isOpen={editModalOpen}
+        onClose={() => {
+          setEditModalOpen(false);
+          setSelectedMember(null);
+        }}
+        member={selectedMember}
+        onSubmit={handleEditSubmit}
+      />
     </div>
   );
 }

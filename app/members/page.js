@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import MainLayout from '../../components/layout/MainLayout';
 import MembersTable from '../../components/members/MembersTable';
 import AddMemberForm from '../../components/members/AddMemberForm';
+import { useAuthorization } from '../../hooks/useAuthorization';
+import { useAuth } from '../../hooks/useAuth';
 import config from '../../config';
 import Modal from '../../components/ui/Modal';
 
@@ -15,6 +17,15 @@ export default function MembersPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
   const router = useRouter();
+  const { isLoading: authLoading } = useAuth();
+  const { canAddMembers, canViewMembers, isAdmin, getUserRole } = useAuthorization();
+
+  // Redirect if user doesn't have permission to view members (only after auth is loaded)
+  useEffect(() => {
+    if (!authLoading && !canViewMembers) {
+      router.push('/Dashboard');
+    }
+  }, [canViewMembers, authLoading, router]);
 
   const retryFetch = async (url, options, retries = 3, delay = 2000) => {
     for (let i = 0; i < retries; i++) {
@@ -133,12 +144,40 @@ export default function MembersPage() {
     setShowAddModal(true);
   };
 
-  const handleEditMember = (member) => {
-    // TODO: Implement edit functionality
-    console.log('Edit member:', member);
-  };
+  const handleEditMember = async (memberId, memberData) => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('Token tidak ditemukan');
+      }
 
-  const handleDeleteMember = async (member) => {
+      const response = await fetch(`${config.API_BASE_URL}/api/members/${memberId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(memberData)
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Gagal mengupdate anggota');
+      }
+
+      const result = await response.json();
+      
+      // Update local state
+      setMembers(prev => prev.map(member => 
+        member.id === memberId ? { ...member, ...memberData } : member
+      ));
+      
+      alert('Anggota berhasil diupdate');
+    } catch (error) {
+      console.error('Error updating member:', error);
+      throw error; // Re-throw to let modal handle the error
+    }
+  };  const handleDeleteMember = async (member) => {
     if (!window.confirm(`Apakah Anda yakin ingin menghapus anggota ${member.name}?`)) return;
 
     setIsLoading(true);
@@ -260,6 +299,20 @@ export default function MembersPage() {
     }
   }, [error]);
 
+  // Show loading state while authentication is loading
+  if (authLoading) {
+    return (
+      <MainLayout>
+        <div className="flex items-center justify-center min-h-96">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+            <p className="text-gray-600">Memuat halaman...</p>
+          </div>
+        </div>
+      </MainLayout>
+    );
+  }
+
   return (
     <MainLayout>
       {/* Error Notification */}
@@ -295,13 +348,14 @@ export default function MembersPage() {
         />
       </div>
 
-      {/* Add Member Modal */}
-      <AddMemberForm
-        isOpen={showAddModal}
-        onClose={handleModalClose}
-        onSubmit={handleMemberAdded}
-        isLoading={isLoading}
-      />
+      {/* Add Member Modal - Only show if user can add members */}
+      {canAddMembers && (
+        <AddMemberForm
+          isOpen={showAddModal}
+          onClose={handleModalClose}
+          onSubmit={handleMemberAdded}
+        />
+      )}
     </MainLayout>
   );
 }
