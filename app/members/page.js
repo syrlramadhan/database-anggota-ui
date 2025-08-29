@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import { CheckCircle, AlertCircle, X } from 'lucide-react';
 import MainLayout from '../../components/layout/MainLayout';
 import MembersTable from '../../components/members/MembersTable';
 import AddMemberForm from '../../components/members/AddMemberForm';
@@ -16,16 +17,32 @@ export default function MembersPage() {
   const [membersData, setMembersData] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [notification, setNotification] = useState({ show: false, type: '', message: '' });
+  const [confirmDelete, setConfirmDelete] = useState({ show: false, member: null });
   const router = useRouter();
   const { isLoading: authLoading } = useAuth();
   const { canAddMembers, canViewMembers, isAdmin, getUserRole } = useAuthorization();
 
-  // Redirect if user doesn't have permission to view members (only after auth is loaded)
+  // Auto hide notification after 5 seconds
   useEffect(() => {
-    if (!authLoading && !canViewMembers) {
-      router.push('/Dashboard');
+    if (notification.show) {
+      const timer = setTimeout(() => {
+        setNotification({ show: false, type: '', message: '' });
+      }, 5000);
+      return () => clearTimeout(timer);
     }
-  }, [canViewMembers, authLoading, router]);
+  }, [notification.show]);
+
+  const showNotification = (type, message) => {
+    setNotification({ show: true, type, message });
+  };
+
+  // Redirect if user doesn't have permission to view members (only after auth is loaded)
+  // useEffect(() => {
+  //   if (!authLoading && !canViewMembers) {
+  //     router.push('/Dashboard');
+  //   }
+  // }, [canViewMembers, authLoading, router]);
 
   const retryFetch = async (url, options, retries = 3, delay = 2000) => {
     for (let i = 0; i < retries; i++) {
@@ -119,6 +136,8 @@ export default function MembersPage() {
               status_keanggotaan: member.status_keanggotaan || 'N/A',
               jurusan: member.jurusan || 'N/A',
               tanggal_dikukuhkan: member.tanggal_dikukuhkan || 'N/A',
+              // Tambahkan login_token untuk kolom baru (hanya untuk DPO dan BPH)
+              login_token: member.login_token || null,
             };
           })
       );
@@ -177,8 +196,15 @@ export default function MembersPage() {
       console.error('Error updating member:', error);
       throw error; // Re-throw to let modal handle the error
     }
-  };  const handleDeleteMember = async (member) => {
-    if (!window.confirm(`Apakah Anda yakin ingin menghapus anggota ${member.name}?`)) return;
+  };
+
+  const handleDeleteMember = async (member) => {
+    setConfirmDelete({ show: true, member });
+  };
+
+  const confirmDeleteMember = async () => {
+    const member = confirmDelete.member;
+    setConfirmDelete({ show: false, member: null });
 
     setIsLoading(true);
     setError(null);
@@ -193,8 +219,10 @@ export default function MembersPage() {
       });
 
       await fetchMembers();
+      showNotification('success', `Anggota ${member.name} berhasil dihapus!`);
     } catch (err) {
-      setError(err.message.includes('login kembali') ? err.message : 'Gagal menghapus anggota.');
+      const errorMessage = err.message.includes('login kembali') ? err.message : 'Gagal menghapus anggota.';
+      showNotification('error', errorMessage);
       if (err.message.includes('login kembali')) router.push('/');
     } finally {
       setIsLoading(false);
@@ -278,7 +306,7 @@ export default function MembersPage() {
       setShowAddModal(false);
       
       // Show success message
-      alert('Anggota berhasil ditambahkan!');
+      showNotification('success', 'Anggota berhasil ditambahkan!');
       
     } catch (err) {
       console.error('Error adding member:', err);
@@ -330,13 +358,47 @@ export default function MembersPage() {
       {/* Page Header */}
       <div className="mb-6">
         <div className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl p-6 text-white">
-          <h1 className="text-2xl font-bold">Manajemen Anggota</h1>
-          <p className="text-blue-100 mt-2">Kelola data anggota organisasi dengan mudah</p>
+          <div className="flex justify-between items-center">
+            <div>
+              <h1 className="text-2xl font-bold">Manajemen Anggota</h1>
+              <p className="text-blue-100 mt-2">Kelola data anggota organisasi dengan mudah</p>
+            </div>
+            {/* Role Badge */}
+            <div className="bg-white bg-opacity-20 rounded-lg px-4 py-2">
+              <div className="text-sm font-medium">
+                Role: {getUserRole}
+              </div>
+              <div className="text-xs text-blue-100">
+                {isAdmin ? 'Full Access' : 'View Only'}
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
       {/* Main Content */}
       <div className="space-y-6">
+        {/* Informasi Akses untuk Anggota Biasa */}
+        {!isAdmin && (
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+            <div className="flex items-start">
+              <div className="flex-shrink-0">
+                <svg className="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <div className="ml-3">
+                <h3 className="text-sm font-medium text-yellow-800">
+                  Mode Tampilan Saja
+                </h3>
+                <div className="mt-2 text-sm text-yellow-700">
+                  <p>Anda memiliki akses untuk melihat data anggota. Untuk menambah, mengedit, atau menghapus anggota, hubungi DPO atau BPH.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         <MembersTable
           members={membersData}
           searchTerm={searchTerm}
@@ -355,6 +417,96 @@ export default function MembersPage() {
           onClose={handleModalClose}
           onSubmit={handleMemberAdded}
         />
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {confirmDelete.show && (
+        <div className="fixed inset-0 z-50 overflow-y-auto">
+          <div className="flex min-h-screen items-center justify-center p-4">
+            {/* Backdrop */}
+            <div 
+              className="fixed inset-0 bg-black bg-opacity-50 transition-opacity"
+              onClick={() => setConfirmDelete({ show: false, member: null })}
+            />
+            
+            {/* Modal */}
+            <div className="relative bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+              <div className="flex items-center justify-center w-12 h-12 mx-auto mb-4 bg-red-100 rounded-full">
+                <AlertCircle className="w-6 h-6 text-red-600" />
+              </div>
+              
+              <div className="text-center mb-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                  Konfirmasi Hapus Anggota
+                </h3>
+                <p className="text-sm text-gray-600">
+                  Apakah Anda yakin ingin menghapus anggota{' '}
+                  <span className="font-medium text-gray-900">
+                    {confirmDelete.member?.name}
+                  </span>
+                  ? Tindakan ini tidak dapat dibatalkan.
+                </p>
+              </div>
+              
+              <div className="flex space-x-3">
+                <button
+                  onClick={() => setConfirmDelete({ show: false, member: null })}
+                  className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                >
+                  Batal
+                </button>
+                <button
+                  onClick={confirmDeleteMember}
+                  className="flex-1 px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors"
+                >
+                  Hapus
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Notification */}
+      {notification.show && (
+        <div className="fixed top-4 right-4 z-[60] max-w-sm w-full">
+          <div className={`
+            rounded-lg shadow-lg border p-4 transition-all duration-300 transform
+            ${notification.type === 'success' 
+              ? 'bg-green-50 border-green-200 text-green-800' 
+              : 'bg-red-50 border-red-200 text-red-800'
+            }
+          `}>
+            <div className="flex items-start">
+              <div className="flex-shrink-0">
+                {notification.type === 'success' ? (
+                  <CheckCircle className="w-5 h-5 text-green-600" />
+                ) : (
+                  <AlertCircle className="w-5 h-5 text-red-600" />
+                )}
+              </div>
+              <div className="ml-3 flex-1">
+                <p className="text-sm font-medium">
+                  {notification.message}
+                </p>
+              </div>
+              <div className="ml-4 flex-shrink-0">
+                <button
+                  onClick={() => setNotification({ show: false, type: '', message: '' })}
+                  className={`
+                    rounded-md inline-flex transition-colors duration-200
+                    ${notification.type === 'success' 
+                      ? 'text-green-400 hover:text-green-600' 
+                      : 'text-red-400 hover:text-red-600'
+                    }
+                  `}
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </MainLayout>
   );

@@ -51,6 +51,7 @@ export default function Header({ onToggleSidebar, isSidebarOpen }) {
       <div className="flex items-center justify-between">
         {/* Left side */}
         <div className="flex items-center space-x-4">
+          {/* Hamburger button - hanya untuk mobile */}
           <button
             onClick={onToggleSidebar}
             className="lg:hidden p-2 rounded-md hover:bg-gray-100"
@@ -58,18 +59,11 @@ export default function Header({ onToggleSidebar, isSidebarOpen }) {
             <Menu className="w-6 h-6 text-gray-600" />
           </button>
           
-          <button
-            onClick={onToggleSidebar}
-            className="hidden lg:block p-2 rounded-md hover:bg-gray-100"
-          >
-            <Menu className="w-6 h-6 text-gray-600" />
-          </button>
-          
           <div>
-            <h1 className="text-xl font-semibold text-gray-800">
+            <h1 className="text-xl font-semibold text-gray-800 hidden sm:block">
               Sistem Manajemen Anggota
             </h1>
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-gray-500 hidden sm:block">
               Kelola data anggota dengan mudah dan efisien
             </p>
           </div>

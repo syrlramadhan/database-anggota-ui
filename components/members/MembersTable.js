@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { Search, UserPlus, Edit, Trash2 } from 'lucide-react';
+import React, { useState } from 'react';
+import { Search, UserPlus, Edit, Trash2, Key, Copy, X, CheckCircle, AlertCircle } from 'lucide-react';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
 import EditMemberModal from './EditMemberModal';
@@ -20,6 +20,22 @@ export default function MembersTable({
   const { canAddMembers, isAdmin, getUserRole, canViewMembers } = useAuthorization();
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [selectedMember, setSelectedMember] = useState(null);
+  const [tokenPopup, setTokenPopup] = useState({ show: false, token: '', memberName: '' });
+  const [copyNotification, setCopyNotification] = useState({ show: false, type: '', message: '' });
+  
+  // Auto hide copy notification after 3 seconds
+  React.useEffect(() => {
+    if (copyNotification.show) {
+      const timer = setTimeout(() => {
+        setCopyNotification({ show: false, type: '', message: '' });
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [copyNotification.show]);
+
+  const showCopyNotification = (type, message) => {
+    setCopyNotification({ show: true, type, message });
+  };
   const getStatusLabel = (status) => {
     const statusMap = {
       'anggota': 'Anggota',
@@ -64,6 +80,24 @@ export default function MembersTable({
     await onEditMember(memberId, memberData);
     setEditModalOpen(false);
     setSelectedMember(null);
+  };
+
+  const handleShowToken = (token, memberName) => {
+    setTokenPopup({ show: true, token, memberName });
+  };
+
+  const handleCopyToken = async (token) => {
+    try {
+      await navigator.clipboard.writeText(token);
+      showCopyNotification('success', 'Token berhasil disalin!');
+    } catch (err) {
+      console.error('Gagal menyalin token:', err);
+      showCopyNotification('error', 'Gagal menyalin token');
+    }
+  };
+
+  const closeTokenPopup = () => {
+    setTokenPopup({ show: false, token: '', memberName: '' });
   };
 
   const filteredMembers = searchTerm.trim() === '' 
@@ -126,13 +160,20 @@ export default function MembersTable({
               <th className="text-left py-3 px-6 text-sm font-medium text-gray-500">Status</th>
               <th className="text-left py-3 px-6 text-sm font-medium text-gray-500">Jurusan</th>
               <th className="text-left py-3 px-6 text-sm font-medium text-gray-500">Tanggal Dikukuhkan</th>
-              <th className="text-left py-3 px-6 text-sm font-medium text-gray-500">Aksi</th>
+              {/* Kolom Token hanya muncul untuk DPO dan BPH */}
+              {isAdmin && (
+                <th className="text-left py-3 px-6 text-sm font-medium text-gray-500">Token</th>
+              )}
+              {/* Kolom Aksi hanya muncul untuk DPO dan BPH */}
+              {isAdmin && (
+                <th className="text-left py-3 px-6 text-sm font-medium text-gray-500">Aksi</th>
+              )}
             </tr>
           </thead>
           <tbody>
             {isLoading ? (
               <tr>
-                <td colSpan="9" className="py-8 px-6 text-center">
+                <td colSpan={isAdmin ? "10" : "8"} className="py-8 px-6 text-center">
                   <div className="flex flex-col items-center">
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-slate-600 mb-4"></div>
                     <p className="text-gray-500">Memuat data anggota...</p>
@@ -141,7 +182,7 @@ export default function MembersTable({
               </tr>
             ) : filteredMembers.length === 0 ? (
               <tr>
-                <td colSpan="9" className="py-8 px-6 text-center text-sm text-gray-500">
+                <td colSpan={isAdmin ? "10" : "8"} className="py-8 px-6 text-center text-sm text-gray-500">
                   {searchTerm ? 'Tidak ada anggota yang cocok dengan pencarian' : 'Tidak ada anggota ditemukan'}
                 </td>
               </tr>
@@ -184,16 +225,39 @@ export default function MembersTable({
                   <td className="py-4 px-6 text-sm text-gray-600">{getStatusLabel(member.status_keanggotaan)}</td>
                   <td className="py-4 px-6 text-sm text-gray-600">{member.jurusan}</td>
                   <td className="py-4 px-6 text-sm text-gray-600">{member.tanggal_dikukuhkan}</td>
-                  <td className="py-4 px-6">
-                    <div className="flex items-center space-x-2">
-                      <button
-                        onClick={() => handleEditMember(member)}
-                        className="p-1 text-blue-600 hover:bg-blue-50 rounded"
-                        title={isAdmin ? "Edit anggota" : "Lihat detail anggota"}
-                      >
-                        <Edit className="w-4 h-4" />
-                      </button>
-                      {isAdmin && (
+                  
+                  {/* Kolom Token - hanya untuk DPO dan BPH */}
+                  {isAdmin && (
+                    <td className="py-4 px-6 text-sm">
+                      {member.login_token ? (
+                        <div className="flex items-center justify-center">
+                          <button
+                            onClick={() => handleShowToken(member.login_token, member.name)}
+                            className="p-2 text-blue-600 hover:bg-blue-50 rounded-full transition-colors"
+                            title="Lihat token"
+                          >
+                            <Key className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-center">
+                          <span className="text-gray-400 text-xs">No token</span>
+                        </div>
+                      )}
+                    </td>
+                  )}
+
+                  {/* Kolom Aksi - hanya untuk DPO dan BPH */}
+                  {isAdmin && (
+                    <td className="py-4 px-6">
+                      <div className="flex items-center space-x-2">
+                        <button
+                          onClick={() => handleEditMember(member)}
+                          className="p-1 text-blue-600 hover:bg-blue-50 rounded"
+                          title="Edit anggota"
+                        >
+                          <Edit className="w-4 h-4" />
+                        </button>
                         <button
                           onClick={() => onDeleteMember(member)}
                           className="p-1 text-red-600 hover:bg-red-50 rounded"
@@ -201,9 +265,9 @@ export default function MembersTable({
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
-                      )}
-                    </div>
-                  </td>
+                      </div>
+                    </td>
+                  )}
                 </tr>
               ))
             )}
@@ -235,6 +299,108 @@ export default function MembersTable({
         member={selectedMember}
         onSubmit={handleEditSubmit}
       />
+
+      {/* Token Popup Modal */}
+      {tokenPopup.show && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md mx-4">
+            {/* Header */}
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center space-x-2">
+                <Key className="w-5 h-5 text-blue-600" />
+                <h3 className="text-lg font-semibold text-gray-900">Token Anggota</h3>
+              </div>
+              <button
+                onClick={closeTokenPopup}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Member Info */}
+            <div className="mb-4">
+              <p className="text-sm text-gray-600">
+                Token untuk: <span className="font-medium text-gray-900">{tokenPopup.memberName}</span>
+              </p>
+            </div>
+
+            {/* Token Display */}
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Token
+              </label>
+              <div className="relative">
+                <textarea
+                  value={tokenPopup.token}
+                  readOnly
+                  className="w-full p-3 border border-gray-300 rounded-lg bg-gray-50 text-sm font-mono resize-none"
+                  rows="4"
+                />
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="flex items-center justify-end space-x-3">
+              <button
+                onClick={closeTokenPopup}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+              >
+                Tutup
+              </button>
+              <button
+                onClick={() => handleCopyToken(tokenPopup.token)}
+                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors flex items-center space-x-2"
+              >
+                <Copy className="w-4 h-4" />
+                <span>Salin Token</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Copy Token Notification */}
+      {copyNotification.show && (
+        <div className="fixed top-4 right-4 z-[70] max-w-sm w-full">
+          <div className={`
+            rounded-lg shadow-lg border p-4 transition-all duration-300 transform
+            ${copyNotification.type === 'success' 
+              ? 'bg-green-50 border-green-200 text-green-800' 
+              : 'bg-red-50 border-red-200 text-red-800'
+            }
+          `}>
+            <div className="flex items-start">
+              <div className="flex-shrink-0">
+                {copyNotification.type === 'success' ? (
+                  <CheckCircle className="w-5 h-5 text-green-600" />
+                ) : (
+                  <AlertCircle className="w-5 h-5 text-red-600" />
+                )}
+              </div>
+              <div className="ml-3 flex-1">
+                <p className="text-sm font-medium">
+                  {copyNotification.message}
+                </p>
+              </div>
+              <div className="ml-4 flex-shrink-0">
+                <button
+                  onClick={() => setCopyNotification({ show: false, type: '', message: '' })}
+                  className={`
+                    rounded-md inline-flex transition-colors duration-200
+                    ${copyNotification.type === 'success' 
+                      ? 'text-green-400 hover:text-green-600' 
+                      : 'text-red-400 hover:text-red-600'
+                    }
+                  `}
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
