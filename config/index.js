@@ -8,6 +8,12 @@ const config = {
   endpoints: {
     member: '/member',
     memberProfile: '/profile',
+    notifications: '/notifications',
+    notificationsUnreadCount: '/notifications/unread/count',
+    statusChangeRequest: '/status-change/request',
+    statusChangeAccept: (requestId) => `/status-change/${requestId}/accept`,
+    statusChangeReject: (requestId) => `/status-change/${requestId}/reject`,
+    notificationMarkRead: (notificationId) => `/notifications/${notificationId}/read`,
     uploads: (filename) => `${config.api.uploadsUrl}/${filename}`,
   }
 };

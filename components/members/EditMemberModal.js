@@ -6,6 +6,7 @@ import Button from '../ui/Button';
 import Input from '../ui/Input';
 import { useAuthorization } from '../../hooks/useAuthorization';
 import { useAuth } from '../../hooks/useAuth';
+import { useNotifications } from '../../hooks/useNotifications';
 
 export default function EditMemberModal({ 
   isOpen, 
@@ -15,6 +16,7 @@ export default function EditMemberModal({
 }) {
   const { isAdmin, isCurrentUser } = useAuthorization();
   const { user } = useAuth();
+  const { needsStatusChangeNotification, sendStatusChangeNotification } = useNotifications();
   const [formData, setFormData] = useState({
     nama: '',
     nra: '',
@@ -27,6 +29,8 @@ export default function EditMemberModal({
   });
   const [originalData, setOriginalData] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [pendingSubmitData, setPendingSubmitData] = useState(null);
   const [notification, setNotification] = useState({ show: false, type: '', message: '' });
 
   // Prevent body scroll when modal is open
@@ -97,6 +101,22 @@ export default function EditMemberModal({
 
   const showNotification = (type, message) => {
     setNotification({ show: true, type, message });
+  };
+
+  // Check if status change needs confirmation notification
+  const needsStatusChangeConfirmation = () => {
+    if (!user || !member) return false;
+    
+    const currentUserStatus = user.status_keanggotaan;
+    const originalStatus = originalData.status_keanggotaan;
+    const newStatus = formData.status_keanggotaan;
+    const isEditingSelf = isCurrentUser(member?.id);
+    
+    // Only check if status is actually changing
+    if (originalStatus === newStatus) return false;
+    
+    // Use the notification logic from useNotifications hook
+    return needsStatusChangeNotification(currentUserStatus, originalStatus, newStatus, isEditingSelf);
   };
 
   // Check if there are any changes in the form
@@ -227,54 +247,119 @@ export default function EditMemberModal({
     // Don't submit if no changes
     if (!hasChanges()) return;
 
+    let submitData = {};
+    
+    if (editingOwnAccount) {
+      // Submit all editable fields for own account
+      submitData = {
+        nama: formData.nama,
+        nra: formData.nra,
+        email: formData.email,
+        nomor_hp: formData.nomor_hp,
+        angkatan: formData.angkatan,
+        tanggal_dikukuhkan: formData.tanggal_dikukuhkan
+      };
+    } else if (canEditBPJurusan) {
+      // For BP, only submit jurusan
+      submitData = {
+        jurusan: formData.jurusan
+      };
+    } else if (canEditStatus) {
+      // For admin editing others' status and jurusan (if not BP)
+      submitData = {
+        status_keanggotaan: formData.status_keanggotaan
+      };
+      
+      // Also include jurusan if this is not BP and it has changed
+      if (member?.status_keanggotaan !== 'bp') {
+        submitData.jurusan = formData.jurusan;
+      }
+    }
+
+    // Check if status change needs confirmation
+    if (needsStatusChangeConfirmation() && !showConfirmModal) {
+      setPendingSubmitData(submitData);
+      setShowConfirmModal(true);
+      return;
+    }
+
+    // Proceed with actual submission
+    await performSubmit(submitData);
+  };
+
+  const performSubmit = async (submitData) => {
     setIsSubmitting(true);
     try {
-      let submitData = {};
+      const editingOwnAccount = isEditingOwnAccount();
+      const canEditBPJurusan = member?.status_keanggotaan === 'bp' && isAdmin && !isCurrentUser(member?.id);
       
-      if (editingOwnAccount) {
-        // Submit all editable fields for own account
-        submitData = {
-          nama: formData.nama,
-          nra: formData.nra,
-          email: formData.email,
-          nomor_hp: formData.nomor_hp,
-          angkatan: formData.angkatan,
-          tanggal_dikukuhkan: formData.tanggal_dikukuhkan
-        };
-      } else if (canEditBPJurusan) {
-        // For BP, only submit jurusan
-        submitData = {
-          jurusan: formData.jurusan
-        };
-      } else if (canEditStatus) {
-        // For admin editing others' status and jurusan (if not BP)
-        submitData = {
-          status_keanggotaan: formData.status_keanggotaan
-        };
+      // Check if this is a status change that needs notification
+      const needsNotification = needsStatusChangeConfirmation();
+      
+      if (needsNotification && submitData.status_keanggotaan) {
+        // Send notification instead of direct update
+        const originalStatus = originalData.status_keanggotaan;
+        const newStatus = submitData.status_keanggotaan;
         
-        // Also include jurusan if this is not BP and it has changed
-        if (member?.status_keanggotaan !== 'bp') {
-          submitData.jurusan = formData.jurusan;
-        }
+        await sendStatusChangeNotification(member.id, originalStatus, newStatus);
+        
+        showNotification('success', 'Permintaan perubahan status telah dikirim untuk konfirmasi!');
+        
+        // Close modal after short delay
+        setTimeout(() => {
+          onClose();
+        }, 2000);
+      } else {
+        // Normal update without notification
+        await onSubmit(member.id, submitData);
+        
+        const successMessage = editingOwnAccount ? 'Profile berhasil diperbarui!' : 
+                             canEditBPJurusan ? 'Jurusan berhasil diperbarui!' : 
+                             'Data anggota berhasil diperbarui!';
+        showNotification('success', successMessage);
+        
+        // Close modal after short delay to show success message
+        setTimeout(() => {
+          onClose();
+        }, 1500);
       }
-
-      await onSubmit(member.id, submitData);
-      
-      const successMessage = editingOwnAccount ? 'Profile berhasil diperbarui!' : 
-                           canEditBPJurusan ? 'Jurusan berhasil diperbarui!' : 
-                           'Data anggota berhasil diperbarui!';
-      showNotification('success', successMessage);
-      
-      // Close modal after short delay to show success message
-      setTimeout(() => {
-        onClose();
-      }, 1500);
     } catch (error) {
       console.error('Error updating member status:', error);
-      showNotification('error', error.message || 'Gagal mengupdate status anggota');
+      showNotification('error', error.message || 'Gagal mengupdate data anggota');
     } finally {
       setIsSubmitting(false);
+      setShowConfirmModal(false);
+      setPendingSubmitData(null);
     }
+  };
+
+  const handleConfirmSubmit = async () => {
+    if (pendingSubmitData) {
+      await performSubmit(pendingSubmitData);
+    }
+  };
+
+  const handleCancelConfirm = () => {
+    setShowConfirmModal(false);
+    setPendingSubmitData(null);
+  };
+
+  const getConfirmationMessage = () => {
+    if (!user || !member) return '';
+    
+    const currentUserStatus = user.status_keanggotaan;
+    const originalStatus = originalData.status_keanggotaan;
+    const newStatus = formData.status_keanggotaan;
+    
+    const statusLabels = {
+      'anggota': 'Anggota',
+      'bph': 'BPH',
+      'dpo': 'DPO', 
+      'alb': 'ALB',
+      'bp': 'BP'
+    };
+    
+    return `Anda akan mengubah status ${member.name} dari ${statusLabels[originalStatus]} menjadi ${statusLabels[newStatus]}. Notifikasi akan dikirim kepada yang bersangkutan. Lanjutkan?`;
   };
 
   const handleChange = (e) => {
@@ -589,6 +674,63 @@ export default function EditMemberModal({
                 >
                   <X className="w-5 h-5" />
                 </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirmation Modal */}
+      {showConfirmModal && (
+        <div className="fixed inset-0 z-[70] overflow-y-auto">
+          <div className="flex min-h-screen items-center justify-center p-4">
+            {/* Backdrop */}
+            <div 
+              className="fixed inset-0 bg-black bg-opacity-50 transition-opacity"
+              onClick={handleCancelConfirm}
+            />
+            
+            {/* Confirmation Modal */}
+            <div className="relative bg-white rounded-lg shadow-xl max-w-md w-full">
+              {/* Header */}
+              <div className="px-6 py-4 border-b border-gray-200">
+                <h3 className="text-lg font-semibold text-gray-900">
+                  Konfirmasi Perubahan Status
+                </h3>
+              </div>
+
+              {/* Body */}
+              <div className="px-6 py-4">
+                <div className="flex items-start">
+                  <div className="flex-shrink-0">
+                    <AlertCircle className="w-6 h-6 text-amber-600" />
+                  </div>
+                  <div className="ml-3">
+                    <p className="text-sm text-gray-700">
+                      {getConfirmationMessage()}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="px-6 py-4 border-t border-gray-200 flex justify-end space-x-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleCancelConfirm}
+                  disabled={isSubmitting}
+                >
+                  Batal
+                </Button>
+                <Button
+                  type="button"
+                  onClick={handleConfirmSubmit}
+                  disabled={isSubmitting}
+                  className="bg-amber-600 hover:bg-amber-700 text-white"
+                >
+                  {isSubmitting ? 'Menyimpan...' : 'Ya, Lanjutkan'}
+                </Button>
               </div>
             </div>
           </div>
