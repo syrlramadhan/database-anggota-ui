@@ -25,6 +25,7 @@ export default function EditMemberModal({
     status_keanggotaan: '',
     tanggal_dikukuhkan: ''
   });
+  const [originalData, setOriginalData] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [notification, setNotification] = useState({ show: false, type: '', message: '' });
 
@@ -98,9 +99,108 @@ export default function EditMemberModal({
     setNotification({ show: true, type, message });
   };
 
+  // Check if there are any changes in the form
+  const hasChanges = () => {
+    const editingOwnAccount = isEditingOwnAccount();
+    const canEditBPJurusan = member?.status_keanggotaan === 'bp' && isAdmin && !isCurrentUser(member?.id);
+    
+    // Check for changes in any editable field
+    let hasAnyChanges = false;
+    
+    if (editingOwnAccount) {
+      // Check editable fields for own account (all except status and jurusan)
+      hasAnyChanges = (
+        formData.nama !== originalData.nama ||
+        formData.nra !== originalData.nra ||
+        formData.email !== originalData.email ||
+        formData.nomor_hp !== originalData.nomor_hp ||
+        formData.angkatan !== originalData.angkatan ||
+        formData.tanggal_dikukuhkan !== originalData.tanggal_dikukuhkan
+      );
+    } else if (canEditBPJurusan) {
+      // For BP, only check jurusan
+      hasAnyChanges = formData.jurusan !== originalData.jurusan;
+    } else if (canEditStatus) {
+      // For admin editing others' status, check both status and jurusan (if not BP)
+      hasAnyChanges = formData.status_keanggotaan !== originalData.status_keanggotaan;
+      
+      // Also check jurusan if this user can edit it
+      if (member?.status_keanggotaan !== 'bp') {
+        hasAnyChanges = hasAnyChanges || (formData.jurusan !== originalData.jurusan);
+      }
+    }
+    
+    return hasAnyChanges;
+  };
+
+  // Get available status options based on current status and hierarchy rules
+  const getAvailableStatusOptions = () => {
+    const currentStatus = member?.status_keanggotaan;
+    
+    if (!currentStatus) {
+      // If no current status, show all options
+      return [
+        { value: "anggota", label: "Anggota" },
+        { value: "bph", label: "BPH" },
+        { value: "dpo", label: "DPO" },
+        { value: "alb", label: "ALB" },
+        { value: "bp", label: "BP (Badan Pendiri)" }
+      ];
+    }
+
+    switch (currentStatus) {
+      case 'anggota':
+        // Anggota bisa naik ke BPH atau langsung ke BP (sementara)
+        return [
+          { value: "anggota", label: "Anggota" },
+          { value: "bph", label: "BPH" },
+          { value: "bp", label: "BP (Badan Pendiri)" }
+        ];
+        
+      case 'bph':
+        // BPH bisa turun ke anggota atau naik ke DPO/ALB
+        return [
+          { value: "anggota", label: "Anggota" },
+          { value: "bph", label: "BPH" },
+          { value: "dpo", label: "DPO" },
+          { value: "alb", label: "ALB" }
+        ];
+        
+      case 'dpo':
+        // DPO tidak bisa turun, hanya bisa pindah ke ALB
+        return [
+          { value: "dpo", label: "DPO" },
+          { value: "alb", label: "ALB" }
+        ];
+        
+      case 'alb':
+        // ALB hanya bisa pindah ke DPO
+        return [
+          { value: "alb", label: "ALB" },
+          { value: "dpo", label: "DPO" }
+        ];
+        
+      case 'bp':
+        // BP tidak bisa diubah
+        return [
+          { value: "bp", label: "BP (Badan Pendiri)" }
+        ];
+        
+      default:
+        // Default fallback
+        return [
+          { value: "anggota", label: "Anggota" },
+          { value: "bph", label: "BPH" },
+          { value: "dpo", label: "DPO" },
+          { value: "alb", label: "ALB" },
+          { value: "bp", label: "BP (Badan Pendiri)" }
+        ];
+    }
+  };
+
   useEffect(() => {
     if (member && isOpen) {
-      setFormData({
+      const memberData = {
         nama: member.name || '',
         nra: member.nra || '',
         email: member.email || '',
@@ -109,26 +209,61 @@ export default function EditMemberModal({
         angkatan: member.angkatan || '',
         status_keanggotaan: member.status_keanggotaan || '',
         tanggal_dikukuhkan: member.tanggal_dikukuhkan || ''
-      });
+      };
+      setFormData(memberData);
+      setOriginalData(memberData);
     }
   }, [member, isOpen]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    // Allow submit if editing own account or if admin editing status of others
+    // Allow submit if editing own account, admin editing status of others, or admin editing BP's jurusan
     const editingOwnAccount = isEditingOwnAccount();
-    if (!editingOwnAccount && !canEditStatus) return;
+    const canEditBPJurusan = member?.status_keanggotaan === 'bp' && isAdmin && !isCurrentUser(member?.id);
+    
+    if (!editingOwnAccount && !canEditStatus && !canEditBPJurusan) return;
+    
+    // Don't submit if no changes
+    if (!hasChanges()) return;
 
     setIsSubmitting(true);
     try {
-      // Only submit status keanggotaan
-      const submitData = {
-        status_keanggotaan: formData.status_keanggotaan
-      };
+      let submitData = {};
+      
+      if (editingOwnAccount) {
+        // Submit all editable fields for own account
+        submitData = {
+          nama: formData.nama,
+          nra: formData.nra,
+          email: formData.email,
+          nomor_hp: formData.nomor_hp,
+          angkatan: formData.angkatan,
+          tanggal_dikukuhkan: formData.tanggal_dikukuhkan
+        };
+      } else if (canEditBPJurusan) {
+        // For BP, only submit jurusan
+        submitData = {
+          jurusan: formData.jurusan
+        };
+      } else if (canEditStatus) {
+        // For admin editing others' status and jurusan (if not BP)
+        submitData = {
+          status_keanggotaan: formData.status_keanggotaan
+        };
+        
+        // Also include jurusan if this is not BP and it has changed
+        if (member?.status_keanggotaan !== 'bp') {
+          submitData.jurusan = formData.jurusan;
+        }
+      }
 
       await onSubmit(member.id, submitData);
-      showNotification('success', 'Status anggota berhasil diperbarui!');
+      
+      const successMessage = editingOwnAccount ? 'Profile berhasil diperbarui!' : 
+                           canEditBPJurusan ? 'Jurusan berhasil diperbarui!' : 
+                           'Data anggota berhasil diperbarui!';
+      showNotification('success', successMessage);
       
       // Close modal after short delay to show success message
       setTimeout(() => {
@@ -336,12 +471,23 @@ export default function EditMemberModal({
                     }`}
                   >
                     <option value="">Pilih Status</option>
-                    <option value="anggota">Anggota</option>
-                    <option value="bph">BPH</option>
-                    <option value="dpo">DPO</option>
-                    <option value="alb">ALB</option>
-                    <option value="bp">BP (Badan Pendiri)</option>
+                    {getAvailableStatusOptions().map(option => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
                   </select>
+                  {canEditStatus && (
+                    <div className="mt-1 text-xs text-blue-600">
+                      <p>Aturan status: 
+                        {member?.status_keanggotaan === 'anggota' && " Anggota → BPH atau BP"}
+                        {member?.status_keanggotaan === 'bph' && " BPH → Anggota, DPO, atau ALB"}
+                        {member?.status_keanggotaan === 'dpo' && " DPO → ALB (tidak bisa turun)"}
+                        {member?.status_keanggotaan === 'alb' && " ALB → DPO"}
+                        {member?.status_keanggotaan === 'bp' && " BP tidak dapat diubah"}
+                      </p>
+                    </div>
+                  )}
                   {!canEditStatus && !isCurrentUser(member?.id) && member?.status_keanggotaan !== 'bp' && (
                     <p className="text-xs text-gray-500 mt-1">
                       Hanya admin yang dapat mengubah status keanggotaan
@@ -387,17 +533,20 @@ export default function EditMemberModal({
               variant="outline"
               onClick={onClose}
             >
-              {(!canEditStatus && !isEditingOwnAccount()) ? 'Tutup' : 'Batal'}
+              {(!canEditStatus && !isEditingOwnAccount() && !(member?.status_keanggotaan === 'bp' && isAdmin && !isCurrentUser(member?.id))) ? 'Tutup' : 'Batal'}
             </Button>
-            {(canEditStatus || isEditingOwnAccount()) && (
+            {(canEditStatus || isEditingOwnAccount() || (member?.status_keanggotaan === 'bp' && isAdmin && !isCurrentUser(member?.id))) && (
               <Button
                 type="submit"
                 onClick={handleSubmit}
-                disabled={isSubmitting}
+                disabled={isSubmitting || !hasChanges()}
+                className={`${
+                  !hasChanges() && !isSubmitting
+                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed hover:bg-gray-300'
+                    : ''
+                }`}
               >
-                {isSubmitting ? 'Menyimpan...' : 
-                  isEditingOwnAccount() ? 'Simpan Profile' : 'Simpan Status'
-                }
+                {isSubmitting ? 'Menyimpan...' : 'Simpan'}
               </Button>
             )}
           </div>
