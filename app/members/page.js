@@ -20,7 +20,7 @@ export default function MembersPage() {
   const [notification, setNotification] = useState({ show: false, type: '', message: '' });
   const [confirmDelete, setConfirmDelete] = useState({ show: false, member: null });
   const router = useRouter();
-  const { isLoading: authLoading } = useAuth();
+  const { isLoading: authLoading, user } = useAuth();
   const { canAddMembers, canViewMembers, isAdmin, getUserRole } = useAuthorization();
 
   // Auto hide notification after 5 seconds
@@ -38,11 +38,11 @@ export default function MembersPage() {
   };
 
   // Redirect if user doesn't have permission to view members (only after auth is loaded)
-  // useEffect(() => {
-  //   if (!authLoading && !canViewMembers) {
-  //     router.push('/Dashboard');
-  //   }
-  // }, [canViewMembers, authLoading, router]);
+  useEffect(() => {
+    // if (!authLoading && !canViewMembers) {
+    //   router.push('/Dashboard');
+    // }
+  }, [canViewMembers, authLoading, router]);
 
   const retryFetch = async (url, options, retries = 3, delay = 2000) => {
     for (let i = 0; i < retries; i++) {
@@ -215,8 +215,22 @@ export default function MembersPage() {
     }
   };
 
+  const isCurrentUser = (member) => {
+    if (!user || !member) return false;
+    return (
+      member.id === user.id ||
+      member.nra === user.nra ||
+      member.email === user.email ||
+      member.name === user.nama
+    );
+  };
+
   const handleDeleteMember = async (member) => {
-    setConfirmDelete({ show: true, member });
+    // Skip parent confirmation popup for current user - let MembersTable handle it completely
+    if (!isCurrentUser(member)) {
+      setConfirmDelete({ show: true, member });
+    }
+    // For current user, do nothing here - MembersTable will handle everything
   };
 
   const confirmDeleteMember = async () => {
@@ -239,6 +253,30 @@ export default function MembersPage() {
       showNotification('success', `Anggota ${member.name} berhasil dihapus!`);
     } catch (err) {
       const errorMessage = err.message.includes('login kembali') ? err.message : 'Gagal menghapus anggota.';
+      showNotification('error', errorMessage);
+      if (err.message.includes('login kembali')) router.push('/');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const directDeleteMember = async (member) => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) throw new Error('Sesi tidak valid. Silakan login kembali.');
+
+      await retryFetch(`${config.api.url}${config.endpoints.member}/${member.id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      await fetchMembers();
+      showNotification('success', `Akun Anda berhasil dihapus!`);
+    } catch (err) {
+      const errorMessage = err.message.includes('login kembali') ? err.message : 'Gagal menghapus akun.';
       showNotification('error', errorMessage);
       if (err.message.includes('login kembali')) router.push('/');
     } finally {
@@ -423,6 +461,7 @@ export default function MembersPage() {
           onAddMember={handleAddMember}
           onEditMember={handleEditMember}
           onDeleteMember={handleDeleteMember}
+          onDirectDeleteMember={directDeleteMember}
           isLoading={isLoading}
         />
       </div>

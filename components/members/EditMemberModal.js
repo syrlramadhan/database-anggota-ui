@@ -5,6 +5,7 @@ import { X, CheckCircle, AlertCircle } from 'lucide-react';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
 import { useAuthorization } from '../../hooks/useAuthorization';
+import { useAuth } from '../../hooks/useAuth';
 
 export default function EditMemberModal({ 
   isOpen, 
@@ -13,6 +14,7 @@ export default function EditMemberModal({
   onSubmit 
 }) {
   const { isAdmin, isCurrentUser } = useAuthorization();
+  const { user } = useAuth();
   const [formData, setFormData] = useState({
     nama: '',
     nra: '',
@@ -51,6 +53,46 @@ export default function EditMemberModal({
 
   // Only admin can edit status, but not their own status and not BP (Badan Pendiri)
   const canEditStatus = isAdmin && !isCurrentUser(member?.id) && member?.status_keanggotaan !== 'bp';
+  
+  // Check if editing own account
+  const isEditingOwnAccount = () => {
+    if (!user || !member) return false;
+    return (
+      member.id === user.id ||
+      member.nra === user.nra ||
+      member.email === user.email ||
+      member.name === user.nama
+    );
+  };
+  
+  // Define which fields can be edited based on user type and context
+  const canEditField = (fieldName) => {
+    const editingOwnAccount = isEditingOwnAccount();
+    
+    if (fieldName === 'status_keanggotaan') {
+      // Status can only be edited by admin, not for own account, and not for BP
+      return canEditStatus;
+    }
+    
+    if (fieldName === 'jurusan') {
+      // Jurusan can be edited by admin for other members (including BP), not for own account
+      return isAdmin && !editingOwnAccount;
+    }
+    
+    if (editingOwnAccount) {
+      // Current user can edit all their fields except status and jurusan
+      return fieldName !== 'status_keanggotaan' && fieldName !== 'jurusan';
+    }
+    
+    // Non-current user fields can only be edited by admin
+    // For BP: only jurusan can be edited, status cannot
+    // For others: both status and jurusan can be edited
+    if (member?.status_keanggotaan === 'bp') {
+      return isAdmin && fieldName === 'jurusan';
+    }
+    
+    return isAdmin && (fieldName === 'status_keanggotaan' || fieldName === 'jurusan');
+  };
 
   const showNotification = (type, message) => {
     setNotification({ show: true, type, message });
@@ -73,7 +115,10 @@ export default function EditMemberModal({
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!canEditStatus) return; // Only admin can submit and not their own status
+    
+    // Allow submit if editing own account or if admin editing status of others
+    const editingOwnAccount = isEditingOwnAccount();
+    if (!editingOwnAccount && !canEditStatus) return;
 
     setIsSubmitting(true);
     try {
@@ -142,10 +187,10 @@ export default function EditMemberModal({
           <div className="px-6 py-3 bg-blue-50 border-b border-blue-200">
             <div className="flex items-center justify-between text-sm">
               <span className="text-blue-700">
-                {!isAdmin && "Mode: View Only (Hanya dapat melihat)"}
-                {isAdmin && !isCurrentUser(member?.id) && member?.status_keanggotaan !== 'bp' && "Mode: Admin (Dapat edit status keanggotaan)"}
-                {isAdmin && isCurrentUser(member?.id) && "Mode: View Only (Tidak dapat edit status sendiri)"}
-                {isAdmin && member?.status_keanggotaan === 'bp' && !isCurrentUser(member?.id) && "Mode: View Only (Status BP tidak dapat diubah)"}
+                {isEditingOwnAccount() && "Mode: Edit Profile (Dapat mengedit data personal kecuali status & jurusan)"}
+                {!isEditingOwnAccount() && !isAdmin && "Mode: View Only (Hanya dapat melihat)"}
+                {!isEditingOwnAccount() && isAdmin && member?.status_keanggotaan !== 'bp' && "Mode: Admin (Dapat edit status & jurusan anggota)"}
+                {!isEditingOwnAccount() && isAdmin && member?.status_keanggotaan === 'bp' && "Mode: Admin BP (Dapat edit jurusan, status BP tidak dapat diubah)"}
               </span>
               <span className="text-blue-600 font-medium">
                 Role: {isAdmin ? 'Admin' : 'Member'}
@@ -159,73 +204,118 @@ export default function EditMemberModal({
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Nama Lengkap
+                    Nama Lengkap {canEditField('nama') && <span className="text-red-500">*</span>}
                   </label>
                   <input
                     type="text"
+                    name="nama"
                     value={formData.nama}
-                    disabled={true}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-md bg-gray-200 text-gray-600 cursor-not-allowed"
+                    onChange={handleChange}
+                    disabled={!canEditField('nama')}
+                    className={`w-full px-3 py-2 border rounded-md focus:outline-none ${
+                      !canEditField('nama') 
+                        ? 'border-gray-200 bg-gray-200 text-gray-600 cursor-not-allowed' 
+                        : 'border-blue-300 bg-white text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm'
+                    }`}
                   />
                 </div>
                 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    NRA
+                    NRA {canEditField('nra') && <span className="text-red-500">*</span>}
                   </label>
                   <input
                     type="text"
+                    name="nra"
                     value={formData.nra}
-                    disabled={true}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-md bg-gray-200 text-gray-600 cursor-not-allowed"
+                    onChange={handleChange}
+                    disabled={!canEditField('nra')}
+                    className={`w-full px-3 py-2 border rounded-md focus:outline-none ${
+                      !canEditField('nra') 
+                        ? 'border-gray-200 bg-gray-200 text-gray-600 cursor-not-allowed' 
+                        : 'border-blue-300 bg-white text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm'
+                    }`}
                   />
                 </div>
                 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Email
+                    Email {canEditField('email') && <span className="text-red-500">*</span>}
                   </label>
                   <input
                     type="email"
+                    name="email"
                     value={formData.email}
-                    disabled={true}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-md bg-gray-200 text-gray-600 cursor-not-allowed"
+                    onChange={handleChange}
+                    disabled={!canEditField('email')}
+                    className={`w-full px-3 py-2 border rounded-md focus:outline-none ${
+                      !canEditField('email') 
+                        ? 'border-gray-200 bg-gray-200 text-gray-600 cursor-not-allowed' 
+                        : 'border-blue-300 bg-white text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm'
+                    }`}
                   />
                 </div>
                 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Nomor HP
+                    Nomor HP {canEditField('nomor_hp') && <span className="text-red-500">*</span>}
                   </label>
                   <input
                     type="text"
+                    name="nomor_hp"
                     value={formData.nomor_hp}
-                    disabled={true}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-md bg-gray-200 text-gray-600 cursor-not-allowed"
+                    onChange={handleChange}
+                    disabled={!canEditField('nomor_hp')}
+                    className={`w-full px-3 py-2 border rounded-md focus:outline-none ${
+                      !canEditField('nomor_hp') 
+                        ? 'border-gray-200 bg-gray-200 text-gray-600 cursor-not-allowed' 
+                        : 'border-blue-300 bg-white text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm'
+                    }`}
                   />
                 </div>
                 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Jurusan
+                    Jurusan {canEditField('jurusan') && <span className="text-red-500">*</span>}
                   </label>
-                  <input
-                    type="text"
+                  <select
+                    name="jurusan"
                     value={formData.jurusan}
-                    disabled={true}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-md bg-gray-200 text-gray-600 cursor-not-allowed"
-                  />
+                    onChange={handleChange}
+                    disabled={!canEditField('jurusan')}
+                    className={`w-full px-3 py-2 border rounded-md focus:outline-none ${
+                      !canEditField('jurusan') 
+                        ? 'border-gray-200 bg-gray-200 text-gray-600 cursor-not-allowed' 
+                        : 'border-blue-300 bg-white text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm'
+                    }`}
+                  >
+                    <option value="">Pilih Jurusan</option>
+                    <option value="Frontend">Frontend</option>
+                    <option value="Backend">Backend</option>
+                    <option value="System">System</option>
+                  </select>
+                  {!canEditField('jurusan') && isEditingOwnAccount() && (
+                    <p className="mt-1 text-xs text-amber-600">
+                      Untuk pindah jurusan, hubungi Admin (BPH/DPO)
+                    </p>
+                  )}
                 </div>
                 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Angkatan
+                    Angkatan {canEditField('angkatan') && <span className="text-red-500">*</span>}
                   </label>
                   <input
                     type="text"
+                    name="angkatan"
                     value={formData.angkatan}
-                    disabled={true}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-md bg-gray-200 text-gray-600 cursor-not-allowed"
+                    onChange={handleChange}
+                    disabled={!canEditField('angkatan')}
+                    className={`w-full px-3 py-2 border rounded-md focus:outline-none ${
+                      !canEditField('angkatan') 
+                        ? 'border-gray-200 bg-gray-200 text-gray-600 cursor-not-allowed' 
+                        : 'border-blue-300 bg-white text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm'
+                    }`}
                   />
                 </div>
                 
@@ -257,9 +347,9 @@ export default function EditMemberModal({
                       Hanya admin yang dapat mengubah status keanggotaan
                     </p>
                   )}
-                  {!canEditStatus && isCurrentUser(member?.id) && isAdmin && (
-                    <p className="text-xs text-orange-600 mt-1">
-                      Anda tidak dapat mengubah status keanggotaan sendiri
+                  {!canEditStatus && isEditingOwnAccount() && (
+                    <p className="mt-1 text-xs text-amber-600">
+                      Untuk mengubah status keanggotaan, hubungi Admin (BPH/DPO)
                     </p>
                   )}
                   {member?.status_keanggotaan === 'bp' && isAdmin && !isCurrentUser(member?.id) && (
@@ -271,13 +361,19 @@ export default function EditMemberModal({
                 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Tanggal Dikukuhkan
+                    Tanggal Dikukuhkan {canEditField('tanggal_dikukuhkan') && <span className="text-red-500">*</span>}
                   </label>
                   <input
                     type="date"
+                    name="tanggal_dikukuhkan"
                     value={formData.tanggal_dikukuhkan}
-                    disabled={true}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-md bg-gray-200 text-gray-600 cursor-not-allowed"
+                    onChange={handleChange}
+                    disabled={!canEditField('tanggal_dikukuhkan')}
+                    className={`w-full px-3 py-2 border rounded-md focus:outline-none ${
+                      !canEditField('tanggal_dikukuhkan') 
+                        ? 'border-gray-200 bg-gray-200 text-gray-600 cursor-not-allowed' 
+                        : 'border-blue-300 bg-white text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm'
+                    }`}
                   />
                 </div>
               </div>
@@ -291,15 +387,17 @@ export default function EditMemberModal({
               variant="outline"
               onClick={onClose}
             >
-              {!canEditStatus ? 'Tutup' : 'Batal'}
+              {(!canEditStatus && !isEditingOwnAccount()) ? 'Tutup' : 'Batal'}
             </Button>
-            {canEditStatus && (
+            {(canEditStatus || isEditingOwnAccount()) && (
               <Button
                 type="submit"
                 onClick={handleSubmit}
                 disabled={isSubmitting}
               >
-                {isSubmitting ? 'Menyimpan...' : 'Simpan Status'}
+                {isSubmitting ? 'Menyimpan...' : 
+                  isEditingOwnAccount() ? 'Simpan Profile' : 'Simpan Status'
+                }
               </Button>
             )}
           </div>

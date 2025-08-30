@@ -6,6 +6,7 @@ import Button from '../ui/Button';
 import Input from '../ui/Input';
 import EditMemberModal from './EditMemberModal';
 import { useAuthorization } from '../../hooks/useAuthorization';
+import { useAuth } from '../../hooks/useAuth';
 import config from '../../config';
 
 export default function MembersTable({ 
@@ -15,13 +16,18 @@ export default function MembersTable({
   onAddMember, 
   onEditMember, 
   onDeleteMember,
+  onDirectDeleteMember,
   isLoading = false
 }) {
   const { canAddMembers, isAdmin, getUserRole, canViewMembers } = useAuthorization();
+  const { user } = useAuth();
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [selectedMember, setSelectedMember] = useState(null);
   const [tokenPopup, setTokenPopup] = useState({ show: false, token: '', memberName: '' });
   const [copyNotification, setCopyNotification] = useState({ show: false, type: '', message: '' });
+  const [deleteConfirmModal, setDeleteConfirmModal] = useState({ show: false, member: null });
+  const [deleteConfirmName, setDeleteConfirmName] = useState('');
+  const [selfDeleteRedirect, setSelfDeleteRedirect] = useState({ show: false });
   
   // Auto hide copy notification after 3 seconds
   React.useEffect(() => {
@@ -100,11 +106,87 @@ export default function MembersTable({
     setTokenPopup({ show: false, token: '', memberName: '' });
   };
 
+  // Check if member is current user
+  const isCurrentUser = (member) => {
+    if (!user || !member) return false;
+    return user.id === member.id_member || user.nra === member.nra || user.email === member.email;
+  };
+
+  // Sort members to put current user first, then others sorted by NRA
+  const sortMembersWithCurrentUserFirst = (membersList) => {
+    if (!user) return membersList;
+    
+    const currentUserMember = membersList.find(member => isCurrentUser(member));
+    const otherMembers = membersList.filter(member => !isCurrentUser(member));
+    
+    // Sort other members by NRA
+    const sortedOtherMembers = otherMembers.sort((a, b) => {
+      const nraA = a.nra || '';
+      const nraB = b.nra || '';
+      return nraA.localeCompare(nraB);
+    });
+    
+    return currentUserMember ? [currentUserMember, ...sortedOtherMembers] : sortedOtherMembers;
+  };
+
+  // Handle delete with confirmation for current user
+  const handleDeleteMember = (member) => {
+    if (isCurrentUser(member)) {
+      // Show confirmation modal for current user
+      setDeleteConfirmModal({ show: true, member });
+      setDeleteConfirmName('');
+    } else {
+      // Direct delete for other members - pass the whole member object
+      onDeleteMember(member);
+    }
+  };
+
+  const handleConfirmDelete = () => {
+    const member = deleteConfirmModal.member;
+    if (member && deleteConfirmName.trim() === member.name.trim()) {
+      const isSelfDelete = isCurrentUser(member);
+      
+      // Close the confirmation modal first
+      setDeleteConfirmModal({ show: false, member: null });
+      setDeleteConfirmName('');
+      
+      // Execute the delete using appropriate function
+      if (isSelfDelete && onDirectDeleteMember) {
+        onDirectDeleteMember(member);
+      } else {
+        onDeleteMember(member);
+      }
+      
+      // If it's self delete, show redirect popup after a short delay
+      if (isSelfDelete) {
+        setTimeout(() => {
+          setSelfDeleteRedirect({ show: true });
+        }, 1000); // Small delay to allow the delete to process
+      }
+    }
+  };
+
+  const closeDeleteConfirmModal = () => {
+    setDeleteConfirmModal({ show: false, member: null });
+    setDeleteConfirmName('');
+  };
+
+  const handleRedirectToLogin = () => {
+    // Clear local storage
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    
+    // Redirect to login page
+    window.location.href = '/';
+  };
+
   const filteredMembers = searchTerm.trim() === '' 
-    ? members 
-    : members.filter((member) =>
-        ['name', 'nra', 'angkatan', 'status_keanggotaan', 'jurusan', 'tanggal_dikukuhkan'].some((key) =>
-          member[key]?.toLowerCase().includes(searchTerm.toLowerCase())
+    ? sortMembersWithCurrentUserFirst(members)
+    : sortMembersWithCurrentUserFirst(
+        members.filter((member) =>
+          ['name', 'nra', 'angkatan', 'status_keanggotaan', 'jurusan', 'tanggal_dikukuhkan'].some((key) =>
+            member[key]?.toLowerCase().includes(searchTerm.toLowerCase())
+          )
         )
       );
 
@@ -187,44 +269,97 @@ export default function MembersTable({
                 </td>
               </tr>
             ) : (
-              filteredMembers.map((member, index) => (
-                <tr
-                  key={member.id}
-                  className="border-b hover:bg-gray-50 transition-colors"
-                >
-                                    <td className="py-4 px-6">
-                    <div className="flex items-center space-x-3">
-                      {getMemberPhotoUrl(member.foto) ? (
-                        <img
-                          src={getMemberPhotoUrl(member.foto)}
-                          alt={`Foto ${member.name}`}
-                          className="w-8 h-8 rounded-full object-cover border border-gray-200"
-                          onError={(e) => {
-                            e.target.style.display = 'none';
-                            e.target.nextSibling.style.display = 'flex';
-                          }}
-                        />
-                      ) : (
-                        <div
-                          className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-medium ${getAvatarColor(index)}`}
-                        >
-                          {member.name && member.name !== 'N/A' ? member.name.charAt(0).toUpperCase() : 'A'}
+              filteredMembers.map((member, index) => {
+                const isCurrentUserRow = isCurrentUser(member);
+                return (
+                  <tr
+                    key={member.id}
+                    className={`border-b transition-all duration-200 ${
+                      isCurrentUserRow 
+                        ? 'bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200 shadow-sm' 
+                        : 'hover:bg-gray-50'
+                    }`}
+                  >
+                    <td className="py-4 px-6">
+                      <div className="flex items-center space-x-3">
+                        {getMemberPhotoUrl(member.foto) ? (
+                          <img
+                            src={getMemberPhotoUrl(member.foto)}
+                            alt={`Foto ${member.name}`}
+                            className={`w-8 h-8 rounded-full object-cover border-2 ${
+                              isCurrentUserRow 
+                                ? 'border-blue-400 shadow-md' 
+                                : 'border-gray-200'
+                            }`}
+                            onError={(e) => {
+                              e.target.style.display = 'none';
+                              e.target.nextSibling.style.display = 'flex';
+                            }}
+                          />
+                        ) : (
+                          <div
+                            className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-medium border-2 ${
+                              isCurrentUserRow 
+                                ? 'border-blue-400 shadow-md bg-blue-500' 
+                                : `border-gray-200 ${getAvatarColor(index)}`
+                            }`}
+                          >
+                            {member.name && member.name !== 'N/A' ? member.name.charAt(0).toUpperCase() : 'A'}
+                          </div>
+                        )}
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center space-x-2">
+                            <span className={`text-sm font-medium block truncate ${
+                              isCurrentUserRow 
+                                ? 'text-blue-900' 
+                                : 'text-gray-900'
+                            }`}>
+                              {member.name && member.name !== 'N/A' ? member.name : 'Nama tidak tersedia'}
+                            </span>
+                            {isCurrentUserRow && (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                Anda
+                              </span>
+                            )}
+                          </div>
                         </div>
-                      )}
-                      <div className="min-w-0 flex-1">
-                        <span className="text-sm text-gray-900 font-medium block truncate">
-                          {member.name && member.name !== 'N/A' ? member.name : 'Nama tidak tersedia'}
-                        </span>
                       </div>
-                    </div>
-                  </td>
-                  <td className="py-4 px-6 text-sm text-gray-600">{member.nra}</td>
-                  <td className="py-4 px-6 text-sm text-blue-600">{member.email}</td>
-                  <td className="py-4 px-6 text-sm text-gray-600">{member.nomor_hp}</td>
-                  <td className="py-4 px-6 text-sm text-gray-600">{member.angkatan}</td>
-                  <td className="py-4 px-6 text-sm text-gray-600">{getStatusLabel(member.status_keanggotaan)}</td>
-                  <td className="py-4 px-6 text-sm text-gray-600">{member.jurusan}</td>
-                  <td className="py-4 px-6 text-sm text-gray-600">{member.tanggal_dikukuhkan}</td>
+                    </td>
+                    <td className={`py-4 px-6 text-sm ${
+                      isCurrentUserRow ? 'text-blue-800 font-medium' : 'text-gray-600'
+                    }`}>
+                      {member.nra}
+                    </td>
+                    <td className={`py-4 px-6 text-sm ${
+                      isCurrentUserRow ? 'text-blue-700 font-medium' : 'text-blue-600'
+                    }`}>
+                      {member.email}
+                    </td>
+                    <td className={`py-4 px-6 text-sm ${
+                      isCurrentUserRow ? 'text-blue-800 font-medium' : 'text-gray-600'
+                    }`}>
+                      {member.nomor_hp}
+                    </td>
+                    <td className={`py-4 px-6 text-sm ${
+                      isCurrentUserRow ? 'text-blue-800 font-medium' : 'text-gray-600'
+                    }`}>
+                      {member.angkatan}
+                    </td>
+                    <td className={`py-4 px-6 text-sm ${
+                      isCurrentUserRow ? 'text-blue-800 font-medium' : 'text-gray-600'
+                    }`}>
+                      {getStatusLabel(member.status_keanggotaan)}
+                    </td>
+                    <td className={`py-4 px-6 text-sm ${
+                      isCurrentUserRow ? 'text-blue-800 font-medium' : 'text-gray-600'
+                    }`}>
+                      {member.jurusan}
+                    </td>
+                    <td className={`py-4 px-6 text-sm ${
+                      isCurrentUserRow ? 'text-blue-800 font-medium' : 'text-gray-600'
+                    }`}>
+                      {member.tanggal_dikukuhkan}
+                    </td>
                   
                   {/* Kolom Token - hanya untuk DPO dan BPH */}
                   {isAdmin && (
@@ -260,7 +395,7 @@ export default function MembersTable({
                         </button>
                         {member.status_keanggotaan !== 'bp' ? (
                           <button
-                            onClick={() => onDeleteMember(member)}
+                            onClick={() => handleDeleteMember(member)}
                             className="p-1 text-red-600 hover:bg-red-50 rounded"
                             title="Hapus anggota"
                           >
@@ -279,7 +414,8 @@ export default function MembersTable({
                     </td>
                   )}
                 </tr>
-              ))
+                );
+              })
             )}
           </tbody>
         </table>
@@ -406,6 +542,100 @@ export default function MembersTable({
                 >
                   <X className="w-5 h-5" />
                 </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deleteConfirmModal.show && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+            <div className="p-6">
+              <div className="flex items-center mb-4">
+                <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center mr-3">
+                  <Trash2 className="w-5 h-5 text-red-600" />
+                </div>
+                <h3 className="text-lg font-medium text-gray-900">
+                  Hapus Akun Anda
+                </h3>
+              </div>
+              
+              <div className="mb-4">
+                <p className="text-sm text-gray-600 mb-2">
+                  Anda akan menghapus akun Anda sendiri. Tindakan ini tidak dapat dibatalkan.
+                </p>
+                <p className="text-sm text-gray-600 mb-4">
+                  Untuk konfirmasi, ketik nama Anda: <span className="font-semibold text-gray-900">{deleteConfirmModal.member?.name}</span>
+                </p>
+                
+                <Input
+                  type="text"
+                  value={deleteConfirmName}
+                  onChange={(e) => setDeleteConfirmName(e.target.value)}
+                  placeholder="Ketik nama Anda"
+                  className="w-full"
+                />
+              </div>
+
+              <div className="flex justify-end space-x-3">
+                <Button
+                  onClick={closeDeleteConfirmModal}
+                  variant="secondary"
+                >
+                  Batal
+                </Button>
+                <Button
+                  onClick={handleConfirmDelete}
+                  disabled={deleteConfirmName.trim() !== deleteConfirmModal.member?.name.trim()}
+                  className={`px-4 py-2 rounded-md text-white font-medium transition-colors ${
+                    deleteConfirmName.trim() === deleteConfirmModal.member?.name.trim()
+                      ? 'bg-red-600 hover:bg-red-700' 
+                      : 'bg-gray-300 cursor-not-allowed'
+                  }`}
+                >
+                  Ya, Hapus Akun Saya
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Self Delete Redirect Modal */}
+      {selfDeleteRedirect.show && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+            <div className="p-6">
+              <div className="flex items-center mb-4">
+                <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mr-4">
+                  <CheckCircle className="w-6 h-6 text-green-600" />
+                </div>
+                <h3 className="text-lg font-medium text-gray-900">
+                  Akun Berhasil Dihapus
+                </h3>
+              </div>
+              
+              <div className="mb-6">
+                <p className="text-sm text-gray-600 mb-3">
+                  Akun Anda telah berhasil dihapus dari sistem. Anda akan diarahkan ke halaman login.
+                </p>
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                  <p className="text-sm text-blue-800">
+                    <span className="font-semibold">Ingin membuat akun baru?</span><br />
+                    Hubungi Admin (DPO/BPH) untuk mendaftarkan akun baru Anda.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex justify-end">
+                <Button
+                  onClick={handleRedirectToLogin}
+                  className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md font-medium transition-colors"
+                >
+                  Ke Halaman Login
+                </Button>
               </div>
             </div>
           </div>
