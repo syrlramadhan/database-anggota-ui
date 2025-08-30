@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Eye, EyeOff, Lock, CheckCircle } from 'lucide-react';
+import { Eye, EyeOff, Lock, CheckCircle, X } from 'lucide-react';
 import config from '../../config';
 
 export default function SetPasswordPage() {
@@ -12,7 +12,22 @@ export default function SetPasswordPage() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [notification, setNotification] = useState({ show: false, type: '', message: '' });
   const router = useRouter();
+
+  // Auto hide notification after 5 seconds
+  useEffect(() => {
+    if (notification.show) {
+      const timer = setTimeout(() => {
+        setNotification({ show: false, type: '', message: '' });
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [notification.show]);
+
+  const showNotification = (type, message) => {
+    setNotification({ show: true, type, message });
+  };
 
   // Cek apakah ada token JWT di localStorage saat halaman dimuat
   useEffect(() => {
@@ -87,7 +102,12 @@ export default function SetPasswordPage() {
       }
 
       // Berhasil set password, arahkan ke halaman lengkapi profile
-      router.push('/complete-profile');
+      showNotification('success', 'Password berhasil diatur! Mengarahkan ke halaman lengkapi profil...');
+      
+      // Delay redirect to show notification
+      setTimeout(() => {
+        router.push('/complete-profile');
+      }, 1500);
     } catch (err) {
       if (err.message.includes('Token tidak valid')) {
         router.push('/');
@@ -292,6 +312,38 @@ export default function SetPasswordPage() {
           </button>
         </form>
       </div>
+
+      {/* Notification */}
+      {notification.show && (
+        <div className="fixed top-4 right-4 z-50 max-w-sm w-full">
+          <div className={`
+            rounded-lg shadow-lg border p-4 transition-all duration-300 transform
+            ${notification.type === 'success' 
+              ? 'bg-green-50 border-green-200 text-green-800' 
+              : 'bg-red-50 border-red-200 text-red-800'
+            }
+          `}>
+            <div className="flex items-start">
+              <div className="flex-shrink-0">
+                <CheckCircle className="w-5 h-5 text-green-600" />
+              </div>
+              <div className="ml-3 flex-1">
+                <p className="text-sm font-medium">
+                  {notification.message}
+                </p>
+              </div>
+              <div className="ml-4 flex-shrink-0">
+                <button
+                  onClick={() => setNotification({ show: false, type: '', message: '' })}
+                  className="rounded-md inline-flex text-green-400 hover:text-green-600 transition-colors duration-200"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

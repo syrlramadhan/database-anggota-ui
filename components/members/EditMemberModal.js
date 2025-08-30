@@ -49,8 +49,8 @@ export default function EditMemberModal({
     }
   }, [notification.show]);
 
-  // Only admin can edit status, but not their own status
-  const canEditStatus = isAdmin && !isCurrentUser(member?.id);
+  // Only admin can edit status, but not their own status and not BP (Badan Pendiri)
+  const canEditStatus = isAdmin && !isCurrentUser(member?.id) && member?.status_keanggotaan !== 'bp';
 
   const showNotification = (type, message) => {
     setNotification({ show: true, type, message });
@@ -108,6 +108,7 @@ export default function EditMemberModal({
   const getModalTitle = () => {
     if (!isAdmin) return `Detail Anggota - ${member?.name || 'Unknown'}`;
     if (isCurrentUser(member?.id)) return `Detail Akun Saya - ${member?.name || 'Unknown'}`;
+    if (member?.status_keanggotaan === 'bp') return `Detail BP (Badan Pendiri) - ${member?.name || 'Unknown'}`;
     return `Edit Status Anggota - ${member?.name || 'Unknown'}`;
   };
 
@@ -142,8 +143,9 @@ export default function EditMemberModal({
             <div className="flex items-center justify-between text-sm">
               <span className="text-blue-700">
                 {!isAdmin && "Mode: View Only (Hanya dapat melihat)"}
-                {isAdmin && !isCurrentUser(member?.id) && "Mode: Admin (Dapat edit status keanggotaan)"}
+                {isAdmin && !isCurrentUser(member?.id) && member?.status_keanggotaan !== 'bp' && "Mode: Admin (Dapat edit status keanggotaan)"}
                 {isAdmin && isCurrentUser(member?.id) && "Mode: View Only (Tidak dapat edit status sendiri)"}
+                {isAdmin && member?.status_keanggotaan === 'bp' && !isCurrentUser(member?.id) && "Mode: View Only (Status BP tidak dapat diubah)"}
               </span>
               <span className="text-blue-600 font-medium">
                 Role: {isAdmin ? 'Admin' : 'Member'}
@@ -248,9 +250,9 @@ export default function EditMemberModal({
                     <option value="bph">BPH</option>
                     <option value="dpo">DPO</option>
                     <option value="alb">ALB</option>
-                    <option value="bp">BP</option>
+                    <option value="bp">BP (Badan Pendiri)</option>
                   </select>
-                  {!canEditStatus && !isCurrentUser(member?.id) && (
+                  {!canEditStatus && !isCurrentUser(member?.id) && member?.status_keanggotaan !== 'bp' && (
                     <p className="text-xs text-gray-500 mt-1">
                       Hanya admin yang dapat mengubah status keanggotaan
                     </p>
@@ -258,6 +260,11 @@ export default function EditMemberModal({
                   {!canEditStatus && isCurrentUser(member?.id) && isAdmin && (
                     <p className="text-xs text-orange-600 mt-1">
                       Anda tidak dapat mengubah status keanggotaan sendiri
+                    </p>
+                  )}
+                  {member?.status_keanggotaan === 'bp' && isAdmin && !isCurrentUser(member?.id) && (
+                    <p className="text-xs text-red-600 mt-1">
+                      Status BP (Badan Pendiri) tidak dapat diubah
                     </p>
                   )}
                 </div>

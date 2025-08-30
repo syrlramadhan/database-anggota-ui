@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Users, TrendingUp, UserPlus } from 'lucide-react';
 import MainLayout from '../../components/layout/MainLayout';
 import Button from '../../components/ui/Button';
+import { useAuthorization } from '../../hooks/useAuthorization';
 import config from '../../config';
 
 export default function DashboardPage() {
@@ -12,6 +13,7 @@ export default function DashboardPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
   const router = useRouter();
+  const { canAddMembers } = useAuthorization();
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -103,15 +105,6 @@ export default function DashboardPage() {
               <p className="text-blue-100 text-lg">
                 Kelola data anggota dengan mudah dan efisien
               </p>
-            </div>
-            <div className="mt-4 md:mt-0">
-              <Button
-                variant="outline"
-                className="bg-white/10 border-white/20 text-white hover:bg-white/20"
-                onClick={() => router.push('/members')}
-              >
-                Kelola Anggota
-              </Button>
             </div>
           </div>
         </div>
@@ -218,13 +211,15 @@ export default function DashboardPage() {
               </h2>
             </div>
             <div className="p-6 space-y-4">
-              <Button
-                className="w-full justify-start"
-                onClick={() => router.push('/members')}
-              >
-                <UserPlus className="w-4 h-4 mr-2" />
-                Tambah Anggota Baru
-              </Button>
+              {canAddMembers && (
+                <Button
+                  className="w-full justify-start"
+                  onClick={() => router.push('/members')}
+                >
+                  <UserPlus className="w-4 h-4 mr-2" />
+                  Tambah Anggota Baru
+                </Button>
+              )}
               <Button
                 variant="outline"
                 className="w-full justify-start"

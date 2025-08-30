@@ -258,13 +258,23 @@ export default function MembersTable({
                         >
                           <Edit className="w-4 h-4" />
                         </button>
-                        <button
-                          onClick={() => onDeleteMember(member)}
-                          className="p-1 text-red-600 hover:bg-red-50 rounded"
-                          title="Hapus anggota"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                        {member.status_keanggotaan !== 'bp' ? (
+                          <button
+                            onClick={() => onDeleteMember(member)}
+                            className="p-1 text-red-600 hover:bg-red-50 rounded"
+                            title="Hapus anggota"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        ) : (
+                          <button
+                            disabled
+                            className="p-1 text-gray-400 cursor-not-allowed rounded"
+                            title="Tidak dapat menghapus Badan Pendiri"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
                       </div>
                     </td>
                   )}

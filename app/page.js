@@ -11,13 +11,50 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
 
+  // Function to format NRA input automatically
+  const formatNRA = (value) => {
+    // Remove all non-digit characters
+    let formattedValue = value.replace(/[^\d]/g, '');
+    
+    // Apply formatting XX.XX.XXX
+    if (formattedValue.length >= 2) {
+      formattedValue = formattedValue.substring(0, 2) + '.' + formattedValue.substring(2);
+    }
+    if (formattedValue.length >= 6) {
+      formattedValue = formattedValue.substring(0, 5) + '.' + formattedValue.substring(5, 8);
+    }
+    
+    return formattedValue;
+  };
+
+  const handleNRAChange = (e) => {
+    const rawValue = e.target.value;
+    const formattedValue = formatNRA(rawValue);
+    setNra(formattedValue);
+    
+    // Clear error when user starts typing
+    if (error) {
+      setError(null);
+    }
+  };
+
+  const handlePasswordChange = (e) => {
+    setPassword(e.target.value);
+    
+    // Clear error when user starts typing
+    if (error) {
+      setError(null);
+    }
+  };
+
   const validateInput = () => {
     if (!nra.trim() || !password.trim()) {
       setError('NRA dan kata sandi harus diisi.');
       return false;
     }
-    if (nra.length > 50) {
-      setError('NRA terlalu panjang (maksimum 50 karakter).');
+    // Validasi format NRA harus XX.XX.XXX
+    if (!/^\d{2}\.\d{2}\.\d{3}$/.test(nra)) {
+      setError('Format NRA harus XX.XX.XXX (contoh: 13.24.005)');
       return false;
     }
     if (password.length < 6) {
@@ -143,13 +180,19 @@ export default function LoginPage() {
             <input
               id="nra"
               type="text"
-              placeholder="Masukkan NRA"
+              placeholder="XX.XX.XXX (contoh: 13.24.005)"
               value={nra}
-              onChange={(e) => setNra(e.target.value.trim())}
+              onChange={handleNRAChange}
               className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
               required
               disabled={isLoading}
+              maxLength={9}
+              pattern="\d{2}\.\d{2}\.\d{3}"
+              title="Format harus XX.XX.XXX (contoh: 13.24.005)"
             />
+            <p className="text-xs text-gray-500 mt-1">
+              Format: XX.XX.XXX (akan otomatis diformat saat mengetik)
+            </p>
           </div>
           <div>
             <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
@@ -160,7 +203,7 @@ export default function LoginPage() {
               type="password"
               placeholder="Masukkan kata sandi"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={handlePasswordChange}
               className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
               required
               disabled={isLoading}

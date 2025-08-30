@@ -19,7 +19,7 @@ export default function AddMemberForm({
     foto: null,
     fotoFile: null, // Store the actual file
     angkatan: '',
-    status_keanggotaan: '',
+    status_keanggotaan: 'anggota', // Default value set to 'anggota'
     jurusan: '',
     tanggal_dikukuhkan: '',
   });
@@ -28,29 +28,11 @@ export default function AddMemberForm({
 
   const MAX_FILE_SIZE = 2 * 1024 * 1024; // 2MB
   const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/gif'];
-  const ALLOWED_STATUSES = ['anggota', 'bph', 'alb', 'dpo', 'bp'];
-
-  const statusOptions = [
-    { value: 'anggota', label: 'Anggota' },
-    { value: 'bph', label: 'BPH (Badan Pengurus Harian)' },
-    { value: 'alb', label: 'ALB (Anggota Luar Biasa)' },
-    { value: 'dpo', label: 'DPO (Dewan Pengawas Organisasi)' },
-    { value: 'bp', label: 'BP (Badan Pendiri)' }
-  ];
 
   const jurusanOptions = [
-    { value: 'Teknik Informatika', label: 'Teknik Informatika' },
-    { value: 'Sistem Informasi', label: 'Sistem Informasi' },
-    { value: 'Teknik Komputer', label: 'Teknik Komputer' },
-    { value: 'Manajemen Informatika', label: 'Manajemen Informatika' },
     { value: 'Backend', label: 'Backend' },
     { value: 'Frontend', label: 'Frontend' },
-    { value: 'Fullstack', label: 'Fullstack' },
-    { value: 'Mobile Developer', label: 'Mobile Developer' },
-    { value: 'Data Science', label: 'Data Science' },
-    { value: 'UI/UX Designer', label: 'UI/UX Designer' },
-    { value: 'DevOps', label: 'DevOps' },
-    { value: 'Cybersecurity', label: 'Cybersecurity' }
+    { value: 'System', label: 'System' },
   ];
 
   const validatePhoto = (file) => {
@@ -69,11 +51,9 @@ export default function AddMemberForm({
     if (!formData.nama.trim()) errors.nama = 'Nama wajib diisi';
     if (!formData.nra.trim()) errors.nra = 'Nomor Anggota wajib diisi';
     else if (!/^\d{2}\.\d{2}\.\d{3}$/.test(formData.nra)) errors.nra = 'Format NRA harus XX.XX.XXX (contoh: 13.24.005)';
-    if (!formData.angkatan.trim()) errors.angkatan = 'Angkatan wajib diisi';
-    else if (formData.angkatan.length > 4) errors.angkatan = 'Angkatan maksimum 4 karakter';
-    if (!formData.status_keanggotaan) errors.status_keanggotaan = 'Status keanggotaan wajib dipilih';
-    else if (!ALLOWED_STATUSES.includes(formData.status_keanggotaan))
-      errors.status_keanggotaan = `Status harus salah satu dari: ${ALLOWED_STATUSES.join(', ')}`;
+    if (!formData.angkatan.trim()) errors.angkatan = 'Angkatan wajib dipilih';
+    else if (!/^\d{3}$/.test(formData.angkatan)) errors.angkatan = 'Format angkatan harus 3 digit (001, 002, 003, ...)';
+    // Status keanggotaan tidak perlu validasi karena otomatis diset ke 'anggota'
     if (!formData.jurusan) errors.jurusan = 'Jurusan wajib dipilih';
     return errors;
   };
@@ -109,6 +89,18 @@ export default function AddMemberForm({
         formattedValue = formattedValue.substring(0, 5) + '.' + formattedValue.substring(5, 8);
       }
       setFormData(prev => ({ ...prev, [name]: formattedValue }));
+    } else if (name === 'angkatan') {
+      // Auto-format angkatan to 3 digits with leading zeros
+      let formattedValue = value.replace(/[^\d]/g, '');
+      
+      // Limit to maximum 3 digits
+      if (formattedValue.length > 3) {
+        formattedValue = formattedValue.substring(0, 3);
+      }
+      
+      // Only pad with zeros when user stops typing or when exactly 3 digits
+      // For now, just store the raw digits and let onBlur handle the padding
+      setFormData(prev => ({ ...prev, [name]: formattedValue }));
     } else if (name === 'tanggal_dikukuhkan') {
       // Store date in YYYY-MM-DD format for input display
       setFormData(prev => ({ ...prev, [name]: value }));
@@ -118,6 +110,14 @@ export default function AddMemberForm({
     
     if (formErrors[name]) {
       setFormErrors(prev => ({ ...prev, [name]: null }));
+    }
+  };
+
+  const handleAngkatanBlur = () => {
+    // Format angkatan with leading zeros when user finishes typing
+    if (formData.angkatan && formData.angkatan.length > 0) {
+      const paddedValue = formData.angkatan.padStart(3, '0');
+      setFormData(prev => ({ ...prev, angkatan: paddedValue }));
     }
   };
 
@@ -152,7 +152,7 @@ export default function AddMemberForm({
       foto: null,
       fotoFile: null,
       angkatan: '',
-      status_keanggotaan: '',
+      status_keanggotaan: 'anggota', // Always reset to 'anggota'
       jurusan: '',
       tanggal_dikukuhkan: '',
     });
@@ -201,7 +201,11 @@ export default function AddMemberForm({
         <div className="text-sm text-blue-700 space-y-3">
           <p>
             Form ini digunakan untuk membuat akun anggota baru dengan data dasar. Admin hanya perlu mengisi 
-            nama, NRA, angkatan, status keanggotaan, jurusan, foto (opsional), dan tanggal dikukuhkan (opsional).
+            nama, NRA (format XX.XX.XXX), angkatan (format 001-030), jurusan, foto (opsional), dan tanggal dikukuhkan (opsional).
+          </p>
+          <p>
+            <strong>Status keanggotaan akan otomatis diatur sebagai "Anggota".</strong> Admin dapat mengubah 
+            status ini melalui fitur edit anggota jika diperlukan.
           </p>
           <p>
             Setelah akun dibuat, sistem akan menghasilkan token login khusus untuk anggota baru tersebut. 
@@ -293,26 +297,22 @@ export default function AddMemberForm({
             maxLength={9}
           />
 
-          <Input
-            label="Angkatan"
-            name="angkatan"
-            value={formData.angkatan}
-            onChange={handleInputChange}
-            error={formErrors.angkatan}
-            required
-            placeholder="contoh: ABCD"
-            maxLength={4}
-          />
-
-          <Select
-            label="Status Keanggotaan"
-            name="status_keanggotaan"
-            value={formData.status_keanggotaan}
-            onChange={handleInputChange}
-            error={formErrors.status_keanggotaan}
-            options={statusOptions}
-            required
-          />
+          <div>
+            <Input
+              label="Angkatan"
+              name="angkatan"
+              value={formData.angkatan}
+              onChange={handleInputChange}
+              onBlur={handleAngkatanBlur}
+              error={formErrors.angkatan}
+              required
+              placeholder="001, 002, ..., 013, 014"
+              maxLength={3}
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              Format: 3 digit angka (akan otomatis diformat dengan leading zero)
+            </p>
+          </div>
 
           <Select
             label="Jurusan"
@@ -323,6 +323,27 @@ export default function AddMemberForm({
             options={jurusanOptions}
             required
           />
+
+          {/* Status Keanggotaan Info */}
+          <div className="md:col-span-2">
+            <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+              <div className="flex items-center">
+                <div className="flex-shrink-0">
+                  <svg className="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                  </svg>
+                </div>
+                <div className="ml-3">
+                  <p className="text-sm font-medium text-green-800">
+                    Status Keanggotaan: <span className="font-semibold">Anggota</span>
+                  </p>
+                  <p className="text-xs text-green-700 mt-1">
+                    Status akan otomatis diatur sebagai "Anggota". Anda dapat mengubahnya nanti melalui fitur edit.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
 
           <div>
             <Input

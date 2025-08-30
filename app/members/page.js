@@ -170,13 +170,25 @@ export default function MembersPage() {
         throw new Error('Token tidak ditemukan');
       }
 
-      const response = await fetch(`${config.API_BASE_URL}/api/member/${memberId}`, {
+      // Create FormData and add the member data
+      const submitData = new FormData();
+      
+      // Add all fields from memberData to FormData
+      Object.keys(memberData).forEach(key => {
+        if (memberData[key] !== null && memberData[key] !== undefined && memberData[key] !== '') {
+          submitData.append(key, memberData[key]);
+        }
+      });
+
+      console.log('Updating member with ID:', memberId);
+      console.log('Member data:', memberData);
+
+      const response = await fetch(`${config.api.url}${config.endpoints.member}/${memberId}`, {
         method: 'PUT',
         headers: {
-          'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify(memberData)
+        body: submitData,
       });
 
       if (!response.ok) {
@@ -185,15 +197,20 @@ export default function MembersPage() {
       }
 
       const result = await response.json();
+      console.log('Update response:', result);
       
-      // Update local state
-      setMembers(prev => prev.map(member => 
+      // Update local state with the correct state setter
+      setMembersData(prev => prev.map(member => 
         member.id === memberId ? { ...member, ...memberData } : member
       ));
       
-      alert('Anggota berhasil diupdate');
+      // Refresh data from server to ensure consistency
+      await fetchMembers();
+      
+      showNotification('success', 'Data anggota berhasil diperbarui!');
     } catch (error) {
       console.error('Error updating member:', error);
+      showNotification('error', error.message || 'Gagal mengupdate anggota');
       throw error; // Re-throw to let modal handle the error
     }
   };

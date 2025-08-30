@@ -1,7 +1,7 @@
 {
-  "name": "inesa-next",
+  "name": "dbanggota-next",
   "version": "1.0.0",
-  "description": "Website Inesa dalam Next.js untuk digitalisasi desa.",
+  "description": "Website DB Anggota dalam Next.js.",
   "scripts": {
     "dev": "next dev",
     "build": "next build",

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { User, Mail, Phone, Calendar, Camera, CheckCircle } from 'lucide-react';
+import { User, Mail, Phone, Calendar, Camera, CheckCircle, X } from 'lucide-react';
 import config from '../../config';
 
 export default function CompleteProfilePage() {
@@ -17,7 +17,55 @@ export default function CompleteProfilePage() {
   const [error, setError] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [userInfo, setUserInfo] = useState(null);
+  const [notification, setNotification] = useState({ show: false, type: '', message: '' });
   const router = useRouter();
+
+  // Auto hide notification after 5 seconds
+  useEffect(() => {
+    if (notification.show) {
+      const timer = setTimeout(() => {
+        setNotification({ show: false, type: '', message: '' });
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [notification.show]);
+
+  const showNotification = (type, message) => {
+    setNotification({ show: true, type, message });
+  };
+
+  // Helper function to get photo URL from database
+  const getPhotoUrl = (foto) => {
+    if (!foto || foto === 'N/A' || foto === 'Foto') return null;
+    if (foto.startsWith('http')) return foto;
+    if (foto.startsWith('/uploads/') || foto.includes('uploads/')) {
+      const fileName = foto.replace('/uploads/', '').replace('uploads/', '');
+      return config.endpoints.uploads(fileName);
+    }
+    return config.endpoints.uploads(foto);
+  };
+
+  const handleImageError = () => {
+    // If image from database fails to load, remove preview
+    if (userInfo?.foto && previewImage && previewImage.startsWith('http')) {
+      setPreviewImage(null);
+      console.warn('Failed to load profile image from database');
+    }
+  };
+
+  const handleRemoveNewPhoto = () => {
+    // Remove newly selected photo and revert to database photo if exists
+    setFormData(prev => ({ ...prev, foto: null }));
+    
+    if (userInfo?.foto) {
+      const photoUrl = getPhotoUrl(userInfo.foto);
+      if (photoUrl) {
+        setPreviewImage(photoUrl);
+      }
+    } else {
+      setPreviewImage(null);
+    }
+  };
 
   useEffect(() => {
     // Cek token dan ambil user info jika diperlukan
@@ -41,6 +89,7 @@ export default function CompleteProfilePage() {
             const data = await profileResponse.json();
             if (data.code === 200 && data.data) {
               setUserInfo(data.data);
+              
               // Prefill existing data if any
               setFormData(prev => ({
                 ...prev,
@@ -49,6 +98,14 @@ export default function CompleteProfilePage() {
                 nomor_hp: data.data.nomor_hp || '',
                 tanggal_dikukuhkan: data.data.tanggal_dikukuhkan || ''
               }));
+
+              // Set existing photo if available
+              if (data.data.foto) {
+                const photoUrl = getPhotoUrl(data.data.foto);
+                if (photoUrl) {
+                  setPreviewImage(photoUrl);
+                }
+              }
             }
           }
         } catch (profileErr) {
@@ -88,6 +145,7 @@ export default function CompleteProfilePage() {
       setError('Tanggal dikukuhkan harus diisi.');
       return false;
     }
+    // Remove foto validation - it's optional if user already has photo in database
     return true;
   };
 
@@ -111,9 +169,12 @@ export default function CompleteProfilePage() {
         return;
       }
       
+      // Clear any existing error
+      setError(null);
+      
       setFormData(prev => ({ ...prev, foto: file }));
       
-      // Create preview
+      // Create preview for new uploaded file
       const reader = new FileReader();
       reader.onloadend = () => {
         setPreviewImage(reader.result);
@@ -151,8 +212,23 @@ export default function CompleteProfilePage() {
       formDataToSend.append('nomor_hp', formData.nomor_hp.trim());
       formDataToSend.append('tanggal_dikukuhkan', formatDateForBackend(formData.tanggal_dikukuhkan));
       
+      // Always send a photo - either new file or existing photo as blob
       if (formData.foto) {
+        // User selected new file
         formDataToSend.append('foto', formData.foto);
+      } else if (userInfo?.foto && previewImage && previewImage.startsWith('http')) {
+        // User keeping existing photo - convert to blob and send
+        try {
+          const response = await fetch(previewImage);
+          const blob = await response.blob();
+          
+          // Create a file from the blob with proper name
+          const file = new File([blob], `profile_${userInfo.nra || 'photo'}.jpg`, { type: blob.type });
+          formDataToSend.append('foto', file);
+        } catch (fetchError) {
+          console.warn('Could not fetch existing photo, proceeding without photo');
+          // If fetching existing photo fails, we'll send without foto
+        }
       }
 
       const response = await fetch(`${config.api.url}/profile/complete`, {
@@ -179,7 +255,12 @@ export default function CompleteProfilePage() {
       }
 
       // Berhasil melengkapi profile, arahkan ke dashboard
-      router.push('/Dashboard');
+      showNotification('success', 'Profile berhasil dilengkapi! Mengarahkan ke Dashboard...');
+      
+      // Delay redirect to show notification
+      setTimeout(() => {
+        router.push('/Dashboard');
+      }, 1500);
     } catch (err) {
       if (err.message.includes('Token tidak valid')) {
         router.push('/');
@@ -223,7 +304,7 @@ export default function CompleteProfilePage() {
           {/* Photo Upload */}
           <div className="text-center">
             <label className="block text-sm font-medium text-gray-700 mb-3">
-              Foto Profile
+              Foto Profile {userInfo?.foto ? userInfo?.nama : ''}
             </label>
             <div className="flex flex-col items-center">
               <div className="relative w-32 h-32 mb-4">
@@ -232,6 +313,7 @@ export default function CompleteProfilePage() {
                     src={previewImage}
                     alt="Preview"
                     className="w-full h-full object-cover rounded-full border-4 border-gray-200"
+                    onError={handleImageError}
                   />
                 ) : (
                   <div className="w-full h-full bg-gray-200 rounded-full border-4 border-gray-200 flex items-center justify-center">
@@ -250,8 +332,35 @@ export default function CompleteProfilePage() {
                 </label>
               </div>
               <p className="text-xs text-gray-500">
-                Upload foto profile (maksimal 5MB)
+                {previewImage && userInfo?.foto && previewImage.startsWith('http') ? 
+                  'Foto dari database akan digunakan (klik kamera untuk mengganti)' : 
+                  previewImage && formData.foto ?
+                  'Foto baru dipilih (akan mengganti foto lama)' :
+                  'Upload foto profile (maksimal 5MB)'
+                }
               </p>
+              {previewImage && userInfo?.foto && previewImage.startsWith('http') && (
+                <p className="text-xs text-blue-600 mt-1">
+                  ✓ Akan menggunakan foto yang sudah ada
+                </p>
+              )}
+              {previewImage && formData.foto && (
+                <p className="text-xs text-green-600 mt-1">
+                  ✓ Foto baru akan diupload
+                </p>
+              )}
+              
+              {/* Button to cancel new photo selection and revert to database photo */}
+              {formData.foto && userInfo?.foto && (
+                <button
+                  type="button"
+                  onClick={handleRemoveNewPhoto}
+                  className="mt-2 text-xs text-blue-600 hover:text-blue-800 underline"
+                  disabled={isLoading}
+                >
+                  Batalkan foto baru & gunakan foto database
+                </button>
+              )}
             </div>
           </div>
 
@@ -387,6 +496,38 @@ export default function CompleteProfilePage() {
           <p className="mt-1">Setelah melengkapi profile, Anda akan diarahkan ke Dashboard</p>
         </div>
       </div>
+
+      {/* Notification */}
+      {notification.show && (
+        <div className="fixed top-4 right-4 z-50 max-w-sm w-full">
+          <div className={`
+            rounded-lg shadow-lg border p-4 transition-all duration-300 transform
+            ${notification.type === 'success' 
+              ? 'bg-green-50 border-green-200 text-green-800' 
+              : 'bg-red-50 border-red-200 text-red-800'
+            }
+          `}>
+            <div className="flex items-start">
+              <div className="flex-shrink-0">
+                <CheckCircle className="w-5 h-5 text-green-600" />
+              </div>
+              <div className="ml-3 flex-1">
+                <p className="text-sm font-medium">
+                  {notification.message}
+                </p>
+              </div>
+              <div className="ml-4 flex-shrink-0">
+                <button
+                  onClick={() => setNotification({ show: false, type: '', message: '' })}
+                  className="rounded-md inline-flex text-green-400 hover:text-green-600 transition-colors duration-200"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
