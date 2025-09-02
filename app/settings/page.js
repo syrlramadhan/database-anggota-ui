@@ -1,7 +1,7 @@
 'use client';
 
+import { Suspense } from 'react';
 import { useState, useEffect } from 'react';
-import { useSearchParams } from 'next/navigation';
 import MainLayout from '../../components/layout/MainLayout';
 import config from '../../config';
 import { updateMember } from '../../services/memberService';
@@ -10,6 +10,24 @@ import Input from '../../components/ui/Input';
 import Select from '../../components/ui/Select';
 import BackupSettings from '../../components/settings/BackupSettings';
 import { useAuth } from '../../hooks/useAuth';
+
+// Wrapper component untuk SearchParams
+function SettingsWithSearchParams() {
+  const { useSearchParams } = require('next/navigation');
+  const { user, updateProfile, isLoading, refetch } = useAuth();
+  const searchParams = useSearchParams();
+  const activeTab = searchParams.get('tab') || 'profile';
+
+  return (
+    <SettingsContent 
+      user={user} 
+      updateProfile={updateProfile} 
+      isLoading={isLoading} 
+      refetch={refetch} 
+      activeTab={activeTab} 
+    />
+  );
+}
 
 // Komponen Edit Profil
 function EditProfileForm({ user, updateProfile, refetch }) {
@@ -315,25 +333,8 @@ const getStatusLabel = (status) => {
   return statusMap[status] || status?.toUpperCase() || 'Tidak tersedia';
 };
 
-const jurusanOptions = [
-  { value: 'Backend', label: 'Back-end' },
-  { value: 'Frontend', label: 'Front-end' },
-  { value: 'System', label: 'System' }
-];
-
-const statusOptions = [
-  { value: 'anggota', label: 'Anggota' },
-  { value: 'bph', label: 'BPH (Badan Pengurus Harian)' },
-  { value: 'alb', label: 'ALB (Anggota Luar Biasa)' },
-  { value: 'dpo', label: 'DPO (Dewan Pertimbangan Organisasi)' },
-  { value: 'bp', label: 'BP (Badan Pendiri)' }
-];
-
-export default function SettingsPage() {
-  const { user, updateProfile, isLoading, refetch } = useAuth();
-  const searchParams = useSearchParams();
-  const activeTab = searchParams.get('tab') || 'profile';
-
+// Content component yang tidak menggunakan useSearchParams langsung
+function SettingsContent({ user, updateProfile, isLoading, refetch, activeTab }) {
   return (
     <MainLayout>
       <div className="min-h-screen bg-gray-50 p-4">
@@ -358,5 +359,30 @@ export default function SettingsPage() {
         </div>
       </div>
     </MainLayout>
+  );
+}
+
+// Loading component untuk fallback
+function SettingsLoading() {
+  return (
+    <MainLayout>
+      <div className="min-h-screen bg-gray-50 p-4">
+        <div className="max-w-4xl mx-auto">
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+            <p className="text-gray-500">Memuat pengaturan...</p>
+          </div>
+        </div>
+      </div>
+    </MainLayout>
+  );
+}
+
+// Main component dengan Suspense
+export default function SettingsPage() {
+  return (
+    <Suspense fallback={<SettingsLoading />}>
+      <SettingsWithSearchParams />
+    </Suspense>
   );
 }

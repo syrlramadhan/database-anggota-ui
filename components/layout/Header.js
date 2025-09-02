@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Menu, ChevronDown, Bell, X, Check, AlertCircle, RefreshCw } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { useNotifications } from '../../hooks/useNotifications';
@@ -11,7 +11,8 @@ export default function Header({ onToggleSidebar, isSidebarOpen }) {
   const [showDropdown, setShowDropdown] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
-  const { user, isLoading } = useAuth();
+  const [forceRefresh, setForceRefresh] = useState(0);
+  const { user, isLoading, refetch } = useAuth();
   const router = useRouter();
   const { 
     notifications, 
@@ -23,6 +24,95 @@ export default function Header({ onToggleSidebar, isSidebarOpen }) {
     fetchUnreadCount,
     loading
   } = useNotifications();
+
+  // Force refresh user data
+  const forceUserRefresh = useCallback(async () => {
+    console.log('Force refreshing user data...');
+    setForceRefresh(prev => prev + 1);
+    if (refetch) {
+      await refetch();
+    }
+  }, [refetch]);
+
+  // Listen untuk semua jenis update data
+  useEffect(() => {
+    const handleDataUpdate = async (event) => {
+      console.log('Data update detected in header:', event.detail || event.type);
+      await forceUserRefresh();
+    };
+
+    const handleStorageChange = async (event) => {
+      // Listen untuk berbagai jenis update dari localStorage
+      const updateKeys = [
+        'data_updated',
+        'user_updated', 
+        'member_updated',
+        'profile_updated',
+        'user_photo_updated',
+        'notification_updated'
+      ];
+
+      if (updateKeys.includes(event.key)) {
+        console.log('Storage change detected in header:', event.key);
+        await forceUserRefresh();
+      }
+    };
+
+    const handleVisibilityChange = async () => {
+      // Refresh data ketika user kembali ke tab
+      if (!document.hidden) {
+        console.log('Tab became visible, refreshing data...');
+        await forceUserRefresh();
+        await fetchNotifications();
+        await fetchUnreadCount();
+      }
+    };
+
+    const handleFocus = async () => {
+      // Refresh data ketika window focus
+      console.log('Window focused, refreshing data...');
+      await forceUserRefresh();
+    };
+
+    // Event listeners untuk berbagai jenis update
+    const eventTypes = [
+      'dataUpdated',
+      'userUpdated', 
+      'memberUpdated',
+      'profileUpdated',
+      'userPhotoUpdated',
+      'notificationUpdated'
+    ];
+
+    eventTypes.forEach(eventType => {
+      window.addEventListener(eventType, handleDataUpdate);
+    });
+
+    window.addEventListener('storage', handleStorageChange);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      eventTypes.forEach(eventType => {
+        window.removeEventListener(eventType, handleDataUpdate);
+      });
+      window.removeEventListener('storage', handleStorageChange);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [forceUserRefresh, fetchNotifications, fetchUnreadCount]);
+
+  // Auto refresh setiap 30 detik untuk memastikan data selalu fresh
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      console.log('Auto refreshing user data...');
+      await forceUserRefresh();
+      await fetchNotifications();
+      await fetchUnreadCount();
+    }, 30000); // 30 detik
+
+    return () => clearInterval(interval);
+  }, [forceUserRefresh, fetchNotifications, fetchUnreadCount]);
 
   const getStatusLabel = (status) => {
     const statusMap = {
@@ -46,18 +136,40 @@ export default function Header({ onToggleSidebar, isSidebarOpen }) {
 
   const getUserPhotoUrl = (foto) => {
     if (!foto || foto === 'N/A' || foto === 'Foto') return null;
-    if (foto.startsWith('http')) return foto;
+    // Selalu tambahkan timestamp dan forceRefresh untuk cache busting
+    const timestamp = Date.now();
+    const refreshParam = `t=${timestamp}&r=${forceRefresh}`;
+    
+    if (foto.startsWith('http')) return `${foto}?${refreshParam}`;
     if (foto.startsWith('/uploads/') || foto.includes('uploads/')) {
       const fileName = foto.replace('/uploads/', '').replace('uploads/', '');
-      return config.endpoints.uploads(fileName);
+      return `${config.endpoints.uploads(fileName)}?${refreshParam}`;
     }
-    return config.endpoints.uploads(foto);
+    return `${config.endpoints.uploads(foto)}?${refreshParam}`;
   };
 
   const handleAcceptStatusChange = async (requestId) => {
     try {
       await acceptStatusChange(requestId);
-      window.location.reload();
+      
+      // Trigger immediate refresh
+      await forceUserRefresh();
+      await fetchNotifications();
+      await fetchUnreadCount();
+      
+      // Dispatch update event
+      const event = new CustomEvent('dataUpdated', { 
+        detail: { type: 'status_accepted', requestId } 
+      });
+      window.dispatchEvent(event);
+      
+      // Save to localStorage
+      localStorage.setItem('data_updated', JSON.stringify({
+        type: 'status_accepted',
+        requestId,
+        timestamp: Date.now()
+      }));
+      
     } catch (error) {
       console.error('Failed to accept status change:', error);
     }
@@ -66,8 +178,46 @@ export default function Header({ onToggleSidebar, isSidebarOpen }) {
   const handleRejectStatusChange = async (requestId) => {
     try {
       await rejectStatusChange(requestId);
+      
+      // Trigger immediate refresh
+      await forceUserRefresh();
+      await fetchNotifications();
+      await fetchUnreadCount();
+      
+      // Dispatch update event
+      const event = new CustomEvent('dataUpdated', { 
+        detail: { type: 'status_rejected', requestId } 
+      });
+      window.dispatchEvent(event);
+      
+      // Save to localStorage
+      localStorage.setItem('data_updated', JSON.stringify({
+        type: 'status_rejected',
+        requestId,
+        timestamp: Date.now()
+      }));
+      
     } catch (error) {
       console.error('Failed to reject status change:', error);
+    }
+  };
+
+  const handleMarkAsRead = async (notificationId) => {
+    try {
+      await markAsRead(notificationId);
+      
+      // Refresh notifications
+      await fetchNotifications();
+      await fetchUnreadCount();
+      
+      // Dispatch update event
+      const event = new CustomEvent('notificationUpdated', { 
+        detail: { type: 'mark_read', notificationId } 
+      });
+      window.dispatchEvent(event);
+      
+    } catch (error) {
+      console.error('Failed to mark as read:', error);
     }
   };
 
@@ -121,6 +271,21 @@ export default function Header({ onToggleSidebar, isSidebarOpen }) {
     }
   };
 
+  // Function to handle image load error
+  const handleImageError = async (e) => {
+    e.target.style.display = 'none';
+    const fallback = e.target.nextSibling;
+    if (fallback) {
+      fallback.style.display = 'flex';
+    }
+    
+    // Try to refresh user data jika gambar gagal load
+    console.log('Image load error, refreshing user data...');
+    setTimeout(async () => {
+      await forceUserRefresh();
+    }, 1000);
+  };
+
   return (
     <header className="sticky top-0 z-30 bg-white border-b border-gray-200 shadow-sm">
       <div className="flex items-center justify-between px-4 sm:px-6 py-3">
@@ -147,6 +312,19 @@ export default function Header({ onToggleSidebar, isSidebarOpen }) {
 
         {/* Right side */}
         <div className="flex items-center space-x-2">
+          {/* Manual Refresh Button */}
+          <button
+            onClick={async () => {
+              await forceUserRefresh();
+              await fetchNotifications();
+              await fetchUnreadCount();
+            }}
+            className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
+            title="Refresh Data"
+          >
+            <RefreshCw className="w-4 h-4 text-gray-600" />
+          </button>
+
           {/* Notification Bell */}
           <div className="relative notification-dropdown">
             <button
@@ -253,7 +431,7 @@ export default function Header({ onToggleSidebar, isSidebarOpen }) {
                             
                             {!notification.read_at && (
                               <button
-                                onClick={() => markAsRead(notification.id_notification)}
+                                onClick={() => handleMarkAsRead(notification.id_notification)}
                                 className="ml-2 text-xs text-blue-600 hover:text-blue-800 flex-shrink-0"
                               >
                                 ✓
@@ -284,18 +462,20 @@ export default function Header({ onToggleSidebar, isSidebarOpen }) {
                 {isLoading ? (
                   <div className="w-full h-full bg-gray-200 animate-pulse"></div>
                 ) : getUserPhotoUrl(user?.foto) ? (
-                  <img
-                    src={getUserPhotoUrl(user?.foto)}
-                    alt={`Foto ${user?.nama}`}
-                    className="w-full h-full object-cover"
-                    onError={(e) => {
-                      e.target.style.display = 'none';
-                      const fallback = e.target.nextSibling;
-                      if (fallback) {
-                        fallback.style.display = 'flex';
-                      }
-                    }}
-                  />
+                  <>
+                    <img
+                      src={getUserPhotoUrl(user?.foto)}
+                      alt={`Foto ${user?.nama}`}
+                      className="w-full h-full object-cover"
+                      onError={handleImageError}
+                      key={`avatar-${forceRefresh}`}
+                    />
+                    <div className="w-full h-full bg-gradient-to-r from-blue-500 to-blue-600 flex items-center justify-center" style={{ display: 'none' }}>
+                      <span className="text-white text-xs font-semibold">
+                        {getUserInitials(user?.nama)}
+                      </span>
+                    </div>
+                  </>
                 ) : (
                   <div className="w-full h-full bg-gradient-to-r from-blue-500 to-blue-600 flex items-center justify-center">
                     <span className="text-white text-xs font-semibold">
@@ -326,18 +506,20 @@ export default function Header({ onToggleSidebar, isSidebarOpen }) {
                   <div className="flex items-center space-x-3">
                     <div className="w-12 h-12 rounded-full flex items-center justify-center overflow-hidden border-2 border-white shadow-sm">
                       {getUserPhotoUrl(user?.foto) ? (
-                        <img
-                          src={getUserPhotoUrl(user?.foto)}
-                          alt={`Foto ${user?.nama}`}
-                          className="w-full h-full object-cover"
-                          onError={(e) => {
-                            e.target.style.display = 'none';
-                            const fallback = e.target.nextSibling;
-                            if (fallback) {
-                              fallback.style.display = 'flex';
-                            }
-                          }}
-                        />
+                        <>
+                          <img
+                            src={getUserPhotoUrl(user?.foto)}
+                            alt={`Foto ${user?.nama}`}
+                            className="w-full h-full object-cover"
+                            onError={handleImageError}
+                            key={`dropdown-avatar-${forceRefresh}`}
+                          />
+                          <div className="w-full h-full bg-gradient-to-r from-blue-500 to-blue-600 flex items-center justify-center" style={{ display: 'none' }}>
+                            <span className="text-white text-sm font-semibold">
+                              {getUserInitials(user?.nama)}
+                            </span>
+                          </div>
+                        </>
                       ) : (
                         <div className="w-full h-full bg-gradient-to-r from-blue-500 to-blue-600 flex items-center justify-center">
                           <span className="text-white text-sm font-semibold">
@@ -363,7 +545,7 @@ export default function Header({ onToggleSidebar, isSidebarOpen }) {
                       )}
                       {user?.angkatan && (
                         <div className="text-xs text-gray-600">
-                          {user.angkatan}
+                          Angkatan {user.angkatan}
                         </div>
                       )}
                     </div>

@@ -8,6 +8,7 @@ const config = {
   endpoints: {
     member: '/member',
     memberProfile: '/profile',
+    memberUpdate: (id) => `/member/${id}`,
     notifications: '/notifications',
     notificationsUnreadCount: '/notifications/unread/count',
     statusChangeRequest: '/status-change/request',
