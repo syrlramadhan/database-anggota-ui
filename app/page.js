@@ -16,12 +16,16 @@ export default function LoginPage() {
     // Remove all non-digit characters
     let formattedValue = value.replace(/[^\d]/g, '');
     
-    // Apply formatting XX.XX.XXX
-    if (formattedValue.length >= 2) {
-      formattedValue = formattedValue.substring(0, 2) + '.' + formattedValue.substring(2);
+    // Jika kurang dari 2 karakter, kembalikan apa adanya
+    if (formattedValue.length <= 2) {
+      return formattedValue;
     }
-    if (formattedValue.length >= 6) {
-      formattedValue = formattedValue.substring(0, 5) + '.' + formattedValue.substring(5, 8);
+    
+    // Apply formatting XX.XX.XXX
+    if (formattedValue.length >= 3 && formattedValue.length <= 4) {
+      formattedValue = formattedValue.substring(0, 2) + '.' + formattedValue.substring(2);
+    } else if (formattedValue.length >= 5) {
+      formattedValue = formattedValue.substring(0, 2) + '.' + formattedValue.substring(2, 4) + '.' + formattedValue.substring(4, 7);
     }
     
     return formattedValue;
@@ -120,12 +124,15 @@ export default function LoginPage() {
 
       if (!response.ok) {
         if (response.status === 401) {
-          throw new Error('NRA atau kata sandi salah. Silakan coba lagi.');
+          throw new Error('NRA atau kata sandi salah. Silakan periksa kembali.');
+        }
+        if (response.status === 404) {
+          throw new Error('NRA tidak ditemukan. Pastikan NRA sudah terdaftar.');
         }
         if (response.status === 500) {
-          throw new Error('Kesalahan server internal. Silakan coba lagi nanti atau hubungi administrator.');
+          throw new Error('Server sedang bermasalah. Silakan coba lagi nanti.');
         }
-        throw new Error(data.message || 'Login gagal. Periksa NRA atau kata sandi Anda.');
+        throw new Error(data.message || 'Login gagal. Periksa NRA dan kata sandi Anda.');
       }
 
       const token = data.data;
@@ -163,7 +170,7 @@ export default function LoginPage() {
       if (err.name === 'AbortError') {
         setError('Permintaan ke server terlalu lama. Silakan coba lagi.');
       } else if (err.message.includes('Failed to fetch')) {
-        setError(`Gagal terhubung ke server setelah 3 percobaan. Periksa koneksi internet Anda atau <a href="mailto:support@example.com" class="text-blue-500 underline">hubungi dukungan</a>.`);
+        setError(`Gagal terhubung ke server. Periksa koneksi internet Anda.`);
       } else {
         setError(err.message);
       }
@@ -173,32 +180,29 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-blue-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md border border-gray-100">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-blue-100 flex items-center justify-center p-4">
+      <div className="bg-white rounded-3xl shadow-2xl p-8 w-full max-w-md border border-blue-100">
         {/* Header */}
-        <div className="text-center mb-8">
-          <div className="w-16 h-16 bg-blue-600 rounded-full flex items-center justify-center mx-auto mb-4">
+        <div className="text-center mb-10">
+          <div className="w-16 h-16 bg-gradient-to-r from-blue-600 to-blue-700 rounded-2xl flex items-center justify-center mx-auto mb-8 shadow-lg">
             <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
             </svg>
           </div>
-          <h1 className="text-3xl font-bold text-gray-800 mb-2">
-            Selamat Datang
+          <h1 className="text-3xl font-bold text-gray-900">
+            Masuk
           </h1>
-          <p className="text-gray-600 text-sm">
-            Sistem Manajemen Anggota Coconut Computer Club
-          </p>
         </div>
 
         {/* Login Form */}
         <form onSubmit={handleSubmit} className="space-y-6">
           {error && (
-            <div className="text-red-600 text-sm text-center p-4 bg-red-50 border border-red-200 rounded-lg" dangerouslySetInnerHTML={{ __html: error }} />
+            <div className="text-red-600 text-sm text-center p-4 bg-red-50 border border-red-200 rounded-2xl" dangerouslySetInnerHTML={{ __html: error }} />
           )}
           
           <div>
-            <label htmlFor="nra" className="block text-sm font-semibold text-gray-700 mb-2">
-              Nomor Registrasi Anggota (NRA)
+            <label htmlFor="nra" className="block text-sm font-semibold text-gray-700 mb-3">
+              NRA
             </label>
             <input
               id="nra"
@@ -206,7 +210,7 @@ export default function LoginPage() {
               placeholder="13.24.005"
               value={nra}
               onChange={handleNRAChange}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+              className="w-full px-4 py-4 border-2 border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 text-center font-mono tracking-wider text-lg"
               required
               disabled={isLoading}
               maxLength={9}
@@ -216,16 +220,16 @@ export default function LoginPage() {
           </div>
           
           <div>
-            <label htmlFor="password" className="block text-sm font-semibold text-gray-700 mb-2">
+            <label htmlFor="password" className="block text-sm font-semibold text-gray-700 mb-3">
               Kata Sandi
             </label>
             <input
               id="password"
               type="password"
-              placeholder="Masukkan kata sandi"
+              placeholder="••••••••"
               value={password}
               onChange={handlePasswordChange}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+              className="w-full px-4 py-4 border-2 border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
               required
               disabled={isLoading}
             />
@@ -233,8 +237,8 @@ export default function LoginPage() {
           
           <button
             type="submit"
-            className={`w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-lg transition-all duration-200 flex items-center justify-center shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 ${
-              isLoading ? 'opacity-70 cursor-not-allowed' : ''
+            className={`w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-semibold py-4 px-4 rounded-2xl transition-all duration-200 flex items-center justify-center shadow-lg ${
+              isLoading ? 'opacity-70 cursor-not-allowed' : 'hover:shadow-xl transform hover:-translate-y-1'
             }`}
             disabled={isLoading}
           >
@@ -260,16 +264,16 @@ export default function LoginPage() {
                 ></path>
               </svg>
             )}
-            {isLoading ? 'Sedang Masuk...' : 'Masuk'}
+            {isLoading ? 'Masuk...' : 'Masuk'}
           </button>
         </form>
 
         {/* Divider */}
         <div className="my-8">
           <div className="flex items-center">
-            <div className="flex-1 border-t border-gray-300"></div>
-            <span className="px-4 text-sm text-gray-500 bg-white font-medium">Metode Alternatif</span>
-            <div className="flex-1 border-t border-gray-300"></div>
+            <div className="flex-1 border-t border-gray-200"></div>
+            <span className="px-4 text-sm text-gray-400 bg-white font-medium">atau</span>
+            <div className="flex-1 border-t border-gray-200"></div>
           </div>
         </div>
         
@@ -277,30 +281,30 @@ export default function LoginPage() {
         <div className="space-y-4">
           <button
             type="button"
-            className="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 px-4 rounded-lg transition-all duration-200 flex items-center justify-center shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+            className="w-full bg-gray-50 hover:bg-gray-100 text-gray-700 font-semibold py-4 px-4 rounded-2xl transition-all duration-200 flex items-center justify-center border-2 border-gray-200 hover:border-gray-300"
             onClick={() => router.push('/login-token')}
             disabled={isLoading}
           >
-            <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
             </svg>
             Login dengan Token
           </button>
           
           {/* Token Information */}
-          <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+          <div className="bg-blue-50 border-2 border-blue-200 rounded-2xl p-4">
             <div className="flex items-start space-x-3">
               <div className="flex-shrink-0">
-                <svg className="w-5 h-5 text-amber-600 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-5 h-5 text-blue-600 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               </div>
               <div>
-                <h4 className="text-sm font-semibold text-amber-800 mb-1">
-                  Tentang Login Token
+                <h4 className="text-sm font-semibold text-blue-900 mb-1">
+                  Token Sekali Pakai
                 </h4>
-                <p className="text-xs text-amber-700 leading-relaxed">
-                  Token login Adalah Token Sekali Pakai  <span className="font-semibold">Bagi Yang Sebalumnya Belum Mempunyai Akun</span> Hubungi pengurus untuk mendapatkan token akses.
+                <p className="text-sm text-blue-700 leading-relaxed">
+                  Untuk pendaftar baru yang belum memiliki akun. Hubungi pengurus untuk mendapatkan token.
                 </p>
               </div>
             </div>
@@ -309,8 +313,8 @@ export default function LoginPage() {
 
         {/* Footer */}
         <div className="text-center mt-8 pt-6 border-t border-gray-200">
-          <p className="text-xs text-gray-500">
-            © 2025 Coconut Computer Club. All rights reserved.
+          <p className="text-sm text-gray-400">
+            © 2025 Coconut Computer Club
           </p>
         </div>
       </div>

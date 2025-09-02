@@ -28,6 +28,9 @@ function EditProfileForm({ user, updateProfile, refetch }) {
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Check if user is admin (BPH or DPO)
+  const isAdmin = user && (user.status_keanggotaan === 'bph' || user.status_keanggotaan === 'dpo');
+
   useEffect(() => {
     if (user) {
       setFormData({
@@ -70,32 +73,31 @@ function EditProfileForm({ user, updateProfile, refetch }) {
     setError('');
     try {
       const token = localStorage.getItem('token');
-      // Ambil value email dan nomor_hp langsung dari input form agar pasti terbaru
-      const payload = { ...formData };
-      const form = e.target;
-      if (form.elements.email) payload.email = form.elements.email.value;
-      if (form.elements.nomor_hp) payload.nomor_hp = form.elements.nomor_hp.value;
-      // Format tanggal_dikukuhkan jika ada
-      if (payload.tanggal_dikukuhkan) {
-        const [y, m, d] = payload.tanggal_dikukuhkan.split('-');
-        payload.tanggal_dikukuhkan = `${d}-${m}-${y}`;
-      }
+      
+      // Hanya field yang bisa diedit untuk semua user (termasuk admin)
+      const payload = {
+        nama: formData.nama,
+        email: formData.email,
+        nomor_hp: formData.nomor_hp
+      };
+      
       // Foto khusus
       if (formData.fotoFile instanceof File) {
         payload.foto = formData.fotoFile;
       }
+      
       // Kirim ke API
       const result = await updateMember(user.id_member || user.id, payload, token);
-          if (result?.data?.foto) {
-            setFormData(prev => ({
-              ...prev,
-              foto: result.data.foto, // path dari backend
-              fotoFile: null // reset preview file
-            }));
-            if (updateProfile) updateProfile({ ...user, foto: result.data.foto });
-            if (refetch) refetch(); // refresh user context (header)
-          }
-          alert('Profil berhasil diupdate');
+      if (result?.data?.foto) {
+        setFormData(prev => ({
+          ...prev,
+          foto: result.data.foto,
+          fotoFile: null
+        }));
+        if (updateProfile) updateProfile({ ...user, foto: result.data.foto });
+        if (refetch) refetch();
+      }
+      alert('Profil berhasil diupdate');
     } catch (err) {
       setError(err.message || 'Gagal mengupdate profil');
     } finally {
@@ -106,16 +108,20 @@ function EditProfileForm({ user, updateProfile, refetch }) {
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
       <div className="flex items-center mb-6">
-        <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl flex items-center justify-center mr-4">
+        <div className="w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center mr-4">
           <span className="text-white text-xl">👤</span>
         </div>
         <div>
           <h2 className="text-2xl font-bold text-gray-900">Edit Profil Saya</h2>
+          <p className="text-gray-600 text-sm">
+            Kelola informasi profil Anda
+          </p>
         </div>
       </div>
+      
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Photo Section */}
-        <div className="flex flex-col items-center p-6 bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl border-2 border-dashed border-gray-300 hover:border-blue-400 transition-colors">
+        <div className="flex flex-col items-center p-6 bg-gray-50 rounded-xl border border-gray-200">
           <label className="text-sm font-medium text-gray-700 mb-3">Foto Profil</label>
           <div className="relative group">
             {formData.foto ? (
@@ -135,7 +141,7 @@ function EditProfileForm({ user, updateProfile, refetch }) {
               </div>
             ) : (
               <div
-                className="w-32 h-32 bg-gradient-to-br from-blue-100 to-purple-100 rounded-full flex items-center justify-center cursor-pointer border-4 border-white shadow-lg hover:shadow-xl transition-all duration-300 group"
+                className="w-32 h-32 bg-blue-100 rounded-full flex items-center justify-center cursor-pointer border-4 border-white shadow-lg hover:shadow-xl transition-all duration-300 group"
                 onClick={() => document.getElementById('fotoInput').click()}
               >
                 <div className="text-center">
@@ -158,118 +164,94 @@ function EditProfileForm({ user, updateProfile, refetch }) {
           </p>
         </div>
 
-        {/* Form Fields */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="space-y-1">
-            <Input
-              label="Nama Lengkap"
-              name="nama"
-              value={formData.nama}
-              onChange={handleInputChange}
-              required
-              placeholder="Masukkan nama lengkap"
-              className="border-gray-300 focus:border-blue-500 focus:ring-blue-500"
-            />
-          </div>
-          <div className="space-y-1">
-            <Input
-              label="Email"
-              name="email"
-              type="email"
-              value={formData.email}
-              onChange={handleInputChange}
-              required
-              placeholder="Masukkan email"
-              className="border-gray-300 focus:border-blue-500 focus:ring-blue-500"
-            />
-          </div>
-          <div className="space-y-1">
-            <Input
-              label="Nomor HP"
-              name="nomor_hp"
-              value={formData.nomor_hp}
-              onChange={handleInputChange}
-              required
-              placeholder="Masukkan nomor HP"
-              className="border-gray-300 focus:border-blue-500 focus:ring-blue-500"
-            />
-          </div>
-          <div className="space-y-1">
-            <Select
-              label="Jurusan"
-              name="jurusan"
-              value={formData.jurusan}
-              onChange={handleInputChange}
-              options={jurusanOptions}
-              required
-              placeholder="Pilih Jurusan"
-              className="border-gray-300 focus:border-blue-500 focus:ring-blue-500"
-            />
-          </div>
-          <div className="space-y-1">
-            <Input
-              label="Angkatan"
-              name="angkatan"
-              value={formData.angkatan}
-              onChange={handleInputChange}
-              required
-              placeholder="Masukkan angkatan"
-              className="border-gray-300 focus:border-blue-500 focus:ring-blue-500"
-            />
-          </div>
-          <div className="space-y-1">
-            <Input
-              label="NRA"
-              name="nra"
-              value={formData.nra}
-              readOnly
-              placeholder="NRA"
-              className="bg-gray-50 border-gray-200"
-            />
-          </div>
-          <div className="space-y-1">
-            <Input
-              label="Tanggal Dikukuhkan"
-              name="tanggal_dikukuhkan"
-              value={formData.tanggal_dikukuhkan}
-              readOnly
-              placeholder="Tanggal Dikukuhkan"
-              className="bg-gray-50 border-gray-200"
-            />
-          </div>
-        </div>
+        {/* All Information Fields */}
+        <div className="bg-blue-50 p-6 rounded-lg border border-blue-200">
+          <h3 className="text-lg font-semibold text-blue-900 mb-6">Informasi Profil</h3>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Nama Lengkap - Editable */}
+            <div className="space-y-1">
+              <Input
+                label="Nama Lengkap *"
+                name="nama"
+                value={formData.nama}
+                onChange={handleInputChange}
+                required
+                placeholder="Masukkan nama lengkap"
+                className="border-blue-300 focus:border-blue-500 focus:ring-blue-500"
+              />
+            </div>
 
-        {/* Status Section */}
-        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-6 rounded-xl border border-blue-200">
-          <label className="block text-sm font-semibold text-gray-700 mb-2">Status Keanggotaan</label>
-          {user && (user.status_keanggotaan === 'bph' || user.status_keanggotaan === 'dpo') ? (
-            <Select
-              name="status_keanggotaan"
-              value={formData.status_keanggotaan}
-              onChange={handleInputChange}
-              options={[
-                { value: 'anggota', label: 'Anggota' },
-                { value: 'bph', label: 'BPH' },
-                { value: 'dpo', label: 'DPO' },
-                { value: 'alb', label: 'ALB' }
-              ]}
-              placeholder="Pilih Status"
-              className="bg-white"
-            />
-          ) : (
-            <div>
-              <div className="inline-flex items-center px-4 py-2 bg-white border border-blue-200 rounded-lg shadow-sm">
+            {/* Email - Editable */}
+            <div className="space-y-1">
+              <Input
+                label="Email *"
+                name="email"
+                type="email"
+                value={formData.email}
+                onChange={handleInputChange}
+                required
+                placeholder="Masukkan email"
+                className="border-blue-300 focus:border-blue-500 focus:ring-blue-500"
+              />
+            </div>
+
+            {/* Nomor HP - Editable */}
+            <div className="space-y-1">
+              <Input
+                label="Nomor HP *"
+                name="nomor_hp"
+                value={formData.nomor_hp}
+                onChange={handleInputChange}
+                required
+                placeholder="Masukkan nomor HP"
+                className="border-blue-300 focus:border-blue-500 focus:ring-blue-500"
+              />
+            </div>
+
+            {/* NRA - Read Only */}
+            <div className="space-y-1">
+              <label className="block text-sm font-medium text-gray-600 mb-1">NRA</label>
+              <div className="px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg text-gray-700">
+                {formData.nra || 'Tidak tersedia'}
+              </div>
+            </div>
+
+            {/* Jurusan - Read Only untuk semua */}
+            <div className="space-y-1">
+              <label className="block text-sm font-medium text-gray-600 mb-1">Jurusan</label>
+              <div className="px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg text-gray-700">
+                {formData.jurusan || 'Tidak tersedia'}
+              </div>
+            </div>
+
+            {/* Angkatan - Read Only */}
+            <div className="space-y-1">
+              <label className="block text-sm font-medium text-gray-600 mb-1">Angkatan</label>
+              <div className="px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg text-gray-700">
+                {formData.angkatan || 'Tidak tersedia'}
+              </div>
+            </div>
+
+            {/* Status Keanggotaan - Read Only untuk semua */}
+            <div className="space-y-1">
+              <label className="block text-sm font-medium text-gray-600 mb-1">Status Keanggotaan</label>
+              <div className="inline-flex items-center px-4 py-2 bg-white border border-gray-200 rounded-lg shadow-sm">
                 <span className="w-3 h-3 bg-blue-500 rounded-full mr-3"></span>
                 <span className="text-gray-900 font-medium">
-                  {user.status_keanggotaan?.toUpperCase() || 'Tidak tersedia'}
+                  {getStatusLabel(formData.status_keanggotaan)}
                 </span>
               </div>
-              <p className="text-xs text-blue-600 mt-2 flex items-center">
-                <span className="mr-1">ℹ️</span>
-                Status hanya dapat diubah oleh BPH atau DPO
-              </p>
             </div>
-          )}
+
+            {/* Tanggal Dikukuhkan - Read Only */}
+            <div className="space-y-1">
+              <label className="block text-sm font-medium text-gray-600 mb-1">Tanggal Dikukuhkan</label>
+              <div className="px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg text-gray-700">
+                {formData.tanggal_dikukuhkan || 'Tidak tersedia'}
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Action Buttons */}
@@ -277,7 +259,7 @@ function EditProfileForm({ user, updateProfile, refetch }) {
           <Button 
             type="submit" 
             disabled={isSubmitting}
-            className="px-8 py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isSubmitting ? (
               <div className="flex items-center">
@@ -309,7 +291,7 @@ function BackupSection() {
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
       <div className="flex items-center mb-6">
-        <div className="w-12 h-12 bg-gradient-to-r from-green-500 to-teal-600 rounded-xl flex items-center justify-center mr-4">
+        <div className="w-12 h-12 bg-green-600 rounded-xl flex items-center justify-center mr-4">
           <span className="text-white text-xl">🗄️</span>
         </div>
         <div>
@@ -321,6 +303,18 @@ function BackupSection() {
   );
 }
 
+// Helper function untuk status label
+const getStatusLabel = (status) => {
+  const statusMap = {
+    'anggota': 'Anggota',
+    'bph': 'BPH (Badan Pengurus Harian)',
+    'alb': 'ALB (Anggota Luar Biasa)',
+    'dpo': 'DPO (Dewan Pertimbangan Organisasi)',
+    'bp': 'BP (Badan Pendiri)'
+  };
+  return statusMap[status] || status?.toUpperCase() || 'Tidak tersedia';
+};
+
 const jurusanOptions = [
   { value: 'Backend', label: 'Back-end' },
   { value: 'Frontend', label: 'Front-end' },
@@ -331,7 +325,7 @@ const statusOptions = [
   { value: 'anggota', label: 'Anggota' },
   { value: 'bph', label: 'BPH (Badan Pengurus Harian)' },
   { value: 'alb', label: 'ALB (Anggota Luar Biasa)' },
-  { value: 'dpo', label: 'DPO (Dewan Pengurus Organisasi)' },
+  { value: 'dpo', label: 'DPO (Dewan Pertimbangan Organisasi)' },
   { value: 'bp', label: 'BP (Badan Pendiri)' }
 ];
 

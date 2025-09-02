@@ -1,17 +1,18 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Menu, User, ChevronDown, UserIcon, Settings, Bell, X, Check, AlertCircle, RefreshCw } from 'lucide-react';
+import { Menu, ChevronDown, Bell, X, Check, AlertCircle, RefreshCw } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { useNotifications } from '../../hooks/useNotifications';
-import ProfileModal from '../members/ProfileModal';
+import { useRouter } from 'next/navigation';
 import config from '../../config';
 
 export default function Header({ onToggleSidebar, isSidebarOpen }) {
   const [showDropdown, setShowDropdown] = useState(false);
-  const [showProfileModal, setShowProfileModal] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   const { user, isLoading } = useAuth();
+  const router = useRouter();
   const { 
     notifications, 
     unreadCount, 
@@ -22,13 +23,6 @@ export default function Header({ onToggleSidebar, isSidebarOpen }) {
     fetchUnreadCount,
     loading
   } = useNotifications();
-
-  // Debug logging
-  useEffect(() => {
-    console.log('Header - Notifications:', notifications);
-    console.log('Header - Unread count:', unreadCount);
-    console.log('Header - Loading:', loading);
-  }, [notifications, unreadCount, loading]);
 
   const getStatusLabel = (status) => {
     const statusMap = {
@@ -60,15 +54,9 @@ export default function Header({ onToggleSidebar, isSidebarOpen }) {
     return config.endpoints.uploads(foto);
   };
 
-  const handleOpenProfile = () => {
-    setShowProfileModal(true);
-    setShowDropdown(false);
-  };
-
   const handleAcceptStatusChange = async (requestId) => {
     try {
       await acceptStatusChange(requestId);
-      // Refresh to show updated status
       window.location.reload();
     } catch (error) {
       console.error('Failed to accept status change:', error);
@@ -83,55 +71,91 @@ export default function Header({ onToggleSidebar, isSidebarOpen }) {
     }
   };
 
-  // Close dropdowns when clicking outside
+  // Detect mobile and close dropdowns when clicking outside
   useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+
     const handleClickOutside = (event) => {
       if (!event.target.closest('.notification-dropdown')) {
         setShowNotifications(false);
       }
-      if (!event.target.closest('.user-dropdown')) {
+      if (!event.target.closest('.user-dropdown') && isMobile) {
         setShowDropdown(false);
       }
     };
 
+    const handleResize = () => {
+      checkMobile();
+      if (!isMobile) {
+        setShowDropdown(false);
+      }
+    };
+
+    checkMobile();
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+    window.addEventListener('resize', handleResize);
+    
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      window.removeEventListener('resize', handleResize);
+    };
+  }, [isMobile]);
+
+  const handleUserClick = () => {
+    if (isMobile) {
+      setShowDropdown(!showDropdown);
+    }
+  };
+
+  const handleUserMouseEnter = () => {
+    if (!isMobile) {
+      setShowDropdown(true);
+    }
+  };
+
+  const handleUserMouseLeave = () => {
+    if (!isMobile) {
+      setShowDropdown(false);
+    }
+  };
 
   return (
-    <header className="sticky top-0 z-30 bg-white border-b border-gray-200 px-6 py-4 shadow-sm lg:ml-0">
-      <div className="flex items-center justify-between">
+    <header className="sticky top-0 z-30 bg-white border-b border-gray-200 shadow-sm">
+      <div className="flex items-center justify-between px-4 sm:px-6 py-3">
         {/* Left side */}
-        <div className="flex items-center space-x-4">
-          {/* Hamburger button - hanya untuk mobile */}
+        <div className="flex items-center space-x-3">
+          {/* Hamburger button - mobile only */}
           <button
             onClick={onToggleSidebar}
-            className="lg:hidden p-2 rounded-md hover:bg-gray-100"
+            className="lg:hidden p-2 rounded-lg hover:bg-gray-100 transition-colors"
           >
-            <Menu className="w-6 h-6 text-gray-600" />
+            <Menu className="w-5 h-5 text-gray-600" />
           </button>
           
-          <div>
-            <h1 className="text-xl font-semibold text-gray-800 hidden sm:block">
-              Sistem Manajemen Anggota
+          {/* Title */}
+          <div className="hidden sm:block">
+            <h1 className="text-lg font-semibold text-gray-900">
+              Dashboard
             </h1>
-            <p className="text-sm text-gray-500 hidden sm:block">
-              Kelola data anggota dengan mudah dan efisien
+            <p className="text-xs text-gray-500 hidden md:block">
+              Sistem Manajemen Anggota
             </p>
           </div>
         </div>
 
         {/* Right side */}
-        <div className="flex items-center space-x-4">
+        <div className="flex items-center space-x-2">
           {/* Notification Bell */}
           <div className="relative notification-dropdown">
             <button
               onClick={() => setShowNotifications(!showNotifications)}
-              className="relative p-2 rounded-md hover:bg-gray-100 transition-colors"
+              className="relative p-2 rounded-lg hover:bg-gray-100 transition-colors"
             >
-              <Bell className="w-6 h-6 text-gray-600" />
+              <Bell className="w-5 h-5 text-gray-600" />
               {unreadCount > 0 && (
-                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center font-medium">
                   {unreadCount > 9 ? '9+' : unreadCount}
                 </span>
               )}
@@ -139,13 +163,13 @@ export default function Header({ onToggleSidebar, isSidebarOpen }) {
 
             {/* Notification Dropdown */}
             {showNotifications && (
-              <div className="absolute right-0 mt-2 w-96 bg-white rounded-md shadow-lg border border-gray-200 z-50 max-h-96 overflow-y-auto">
-                <div className="px-4 py-3 border-b border-gray-100">
+              <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-white rounded-xl shadow-lg border border-gray-200 z-50 max-h-96 overflow-hidden">
+                <div className="px-4 py-3 border-b border-gray-100 bg-gray-50">
                   <div className="flex items-center justify-between">
                     <div>
-                      <h3 className="text-lg font-semibold text-gray-900">Notifikasi</h3>
+                      <h3 className="text-sm font-semibold text-gray-900">Notifikasi</h3>
                       {unreadCount > 0 && (
-                        <p className="text-sm text-gray-500">{unreadCount} notifikasi belum dibaca</p>
+                        <p className="text-xs text-gray-500">{unreadCount} belum dibaca</p>
                       )}
                     </div>
                     <button
@@ -153,8 +177,8 @@ export default function Header({ onToggleSidebar, isSidebarOpen }) {
                         await fetchNotifications();
                         await fetchUnreadCount();
                       }}
-                      className="p-1 rounded-md hover:bg-gray-100 transition-colors"
-                      title="Refresh notifikasi"
+                      className="p-1.5 rounded-lg hover:bg-gray-200 transition-colors"
+                      title="Refresh"
                       disabled={loading}
                     >
                       <RefreshCw className={`w-4 h-4 text-gray-600 ${loading ? 'animate-spin' : ''}`} />
@@ -162,127 +186,101 @@ export default function Header({ onToggleSidebar, isSidebarOpen }) {
                   </div>
                 </div>
 
-                {notifications.length === 0 ? (
-                  <div className="px-4 py-8 text-center text-gray-500">
-                    <Bell className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-                    <p>Tidak ada notifikasi</p>
-                    {/* Debug info */}
-                    <div className="mt-4 p-3 bg-gray-100 rounded text-xs text-left">
-                      <p><strong>Debug Info:</strong></p>
-                      <p>Notifications count: {notifications.length}</p>
-                      <p>Current user: {user?.nama || 'Unknown'}</p>
-                      <p>User ID: {user?.id || 'Unknown'}</p>
-                      <p>Loading: {loading ? 'Yes' : 'No'}</p>
-                      <p>Unread count: {unreadCount}</p>
-                      <button 
-                        onClick={() => {
-                          console.log('Manual fetch triggered');
-                          fetchNotifications();
-                        }}
-                        className="mt-2 px-2 py-1 bg-blue-500 text-white rounded text-xs mr-2"
-                      >
-                        Force Fetch
-                      </button>
-                      <button 
-                        onClick={() => {
-                          console.log('=== CURRENT STATE DEBUG ===');
-                          console.log('Notifications array:', notifications);
-                          console.log('Notifications length:', notifications.length);
-                          console.log('Unread count:', unreadCount);
-                          console.log('Loading:', loading);
-                          console.log('User:', user);
-                          console.log('=== END DEBUG ===');
-                        }}
-                        className="mt-2 px-2 py-1 bg-green-500 text-white rounded text-xs"
-                      >
-                        Log State
-                      </button>
+                <div className="max-h-80 overflow-y-auto">
+                  {notifications.length === 0 ? (
+                    <div className="px-4 py-8 text-center">
+                      <Bell className="w-8 h-8 mx-auto mb-2 text-gray-300" />
+                      <p className="text-sm text-gray-500">Tidak ada notifikasi</p>
                     </div>
-                  </div>
-                ) : (
-                  <div className="py-2">
-                    {notifications.map((notification) => (
-                      <div
-                        key={notification.id_notification}
-                        className={`px-4 py-3 border-b border-gray-50 ${
-                          !notification.read_at ? 'bg-blue-50' : ''
-                        }`}
-                      >
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <div className="flex items-center space-x-2">
-                              <AlertCircle className="w-4 h-4 text-amber-500" />
-                              <h4 className="text-sm font-medium text-gray-900">
-                                {notification.title}
-                              </h4>
-                              {!notification.read_at && (
-                                <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                  ) : (
+                    <div className="divide-y divide-gray-100">
+                      {notifications.map((notification) => (
+                        <div
+                          key={notification.id_notification}
+                          className={`px-4 py-3 hover:bg-gray-50 transition-colors ${
+                            !notification.read_at ? 'bg-blue-50' : ''
+                          }`}
+                        >
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center space-x-2 mb-1">
+                                <AlertCircle className="w-4 h-4 text-amber-500 flex-shrink-0" />
+                                <h4 className="text-sm font-medium text-gray-900 truncate">
+                                  {notification.title}
+                                </h4>
+                                {!notification.read_at && (
+                                  <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0"></div>
+                                )}
+                              </div>
+                              <p className="text-sm text-gray-600 mb-1">
+                                {notification.message}
+                              </p>
+                              <p className="text-xs text-gray-400">
+                                {notification.from_member?.nama || 'System'} • {new Date(notification.created_at).toLocaleDateString('id-ID')}
+                              </p>
+                              
+                              {notification.pending && (
+                                <div className="flex items-center space-x-2 mt-2">
+                                  <button
+                                    onClick={() => handleAcceptStatusChange(notification.metadata?.request_id)}
+                                    className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-green-100 text-green-800 hover:bg-green-200 transition-colors"
+                                  >
+                                    <Check className="w-3 h-3 mr-1" />
+                                    Terima
+                                  </button>
+                                  <button
+                                    onClick={() => handleRejectStatusChange(notification.metadata?.request_id)}
+                                    className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-red-100 text-red-800 hover:bg-red-200 transition-colors"
+                                  >
+                                    <X className="w-3 h-3 mr-1" />
+                                    Tolak
+                                  </button>
+                                </div>
+                              )}
+                              
+                              {!notification.pending && notification.accepted !== undefined && (
+                                <div className="mt-2">
+                                  <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                                    notification.accepted
+                                      ? 'bg-green-100 text-green-800'
+                                      : 'bg-red-100 text-red-800'
+                                  }`}>
+                                    {notification.accepted ? '✓ Diterima' : '✗ Ditolak'}
+                                  </span>
+                                </div>
                               )}
                             </div>
-                            <p className="text-sm text-gray-600 mt-1">
-                              {notification.message}
-                            </p>
-                            <p className="text-xs text-gray-400 mt-1">
-                              Dari: {notification.from_member?.nama || 'System'} • {new Date(notification.created_at).toLocaleString('id-ID')}
-                            </p>
                             
-                            {notification.pending && (
-                              <div className="flex items-center space-x-2 mt-3">
-                                <button
-                                  onClick={() => handleAcceptStatusChange(notification.metadata?.request_id)}
-                                  className="inline-flex items-center px-3 py-1 rounded-md text-xs font-medium bg-green-100 text-green-800 hover:bg-green-200 transition-colors"
-                                >
-                                  <Check className="w-3 h-3 mr-1" />
-                                  Terima
-                                </button>
-                                <button
-                                  onClick={() => handleRejectStatusChange(notification.metadata?.request_id)}
-                                  className="inline-flex items-center px-3 py-1 rounded-md text-xs font-medium bg-red-100 text-red-800 hover:bg-red-200 transition-colors"
-                                >
-                                  <X className="w-3 h-3 mr-1" />
-                                  Tolak
-                                </button>
-                              </div>
-                            )}
-                            
-                            {!notification.pending && notification.accepted !== undefined && (
-                              <div className="mt-2">
-                                <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                                  notification.accepted
-                                    ? 'bg-green-100 text-green-800'
-                                    : 'bg-red-100 text-red-800'
-                                }`}>
-                                  {notification.accepted ? '✓ Diterima' : '✗ Ditolak'}
-                                </span>
-                              </div>
+                            {!notification.read_at && (
+                              <button
+                                onClick={() => markAsRead(notification.id_notification)}
+                                className="ml-2 text-xs text-blue-600 hover:text-blue-800 flex-shrink-0"
+                              >
+                                ✓
+                              </button>
                             )}
                           </div>
-                          
-                          {!notification.read_at && (
-                            <button
-                              onClick={() => markAsRead(notification.id_notification)}
-                              className="ml-2 text-xs text-blue-600 hover:text-blue-800"
-                            >
-                              Tandai sudah dibaca
-                            </button>
-                          )}
                         </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
             )}
           </div>
 
-          {/* User Dropdown */}
-          <div className="relative user-dropdown">
+          {/* User Profile */}
+          <div 
+            className="relative user-dropdown"
+            onMouseEnter={handleUserMouseEnter}
+            onMouseLeave={handleUserMouseLeave}
+          >
             <button
-              onClick={() => setShowDropdown(!showDropdown)}
-              className="flex items-center space-x-2 p-2 rounded-md hover:bg-gray-100"
+              onClick={handleUserClick}
+              className="flex items-center space-x-2 p-1.5 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
             >
-              {/* User Avatar/Photo */}
-              <div className="w-8 h-8 rounded-full flex items-center justify-center overflow-hidden border border-gray-200">
+              {/* User Avatar */}
+              <div className="w-8 h-8 rounded-full flex items-center justify-center overflow-hidden border-2 border-gray-200">
                 {isLoading ? (
                   <div className="w-full h-full bg-gray-200 animate-pulse"></div>
                 ) : getUserPhotoUrl(user?.foto) ? (
@@ -299,17 +297,17 @@ export default function Header({ onToggleSidebar, isSidebarOpen }) {
                     }}
                   />
                 ) : (
-                  <div className="w-full h-full bg-gradient-to-r from-blue-500 to-purple-500 flex items-center justify-center">
-                    <span className="text-white text-xs font-medium">
+                  <div className="w-full h-full bg-gradient-to-r from-blue-500 to-blue-600 flex items-center justify-center">
+                    <span className="text-white text-xs font-semibold">
                       {getUserInitials(user?.nama)}
                     </span>
                   </div>
                 )}
               </div>
 
-              {/* User Info */}
-              <div className="hidden md:block text-left">
-                <div className="text-sm font-medium text-gray-700">
+              {/* User Info - Hidden on mobile */}
+              <div className="hidden sm:block text-left">
+                <div className="text-sm font-medium text-gray-900">
                   {isLoading ? 'Memuat...' : (user?.nama || 'User')}
                 </div>
                 <div className="text-xs text-gray-500">
@@ -317,15 +315,16 @@ export default function Header({ onToggleSidebar, isSidebarOpen }) {
                 </div>
               </div>
               
-              <ChevronDown className="w-4 h-4 text-gray-500" />
+              <ChevronDown className={`w-4 h-4 text-gray-500 hidden sm:block transition-transform duration-200 ${showDropdown ? 'rotate-180' : ''}`} />
             </button>
 
+            {/* User Info Dropdown - Shows on hover (desktop) or click (mobile) */}
             {showDropdown && (
-              <div className="absolute right-0 mt-2 w-64 bg-white rounded-md shadow-lg border border-gray-200 z-50">
-                {/* User Info Header */}
-                <div className="px-4 py-3 border-b border-gray-100">
+              <div className="absolute right-0 mt-2 w-72 bg-white rounded-xl shadow-lg border border-gray-200 z-50 overflow-hidden">
+                {/* User Profile Details */}
+                <div className="px-4 py-4 bg-gradient-to-r from-blue-50 to-blue-100">
                   <div className="flex items-center space-x-3">
-                    <div className="w-10 h-10 rounded-full flex items-center justify-center overflow-hidden border border-gray-200">
+                    <div className="w-12 h-12 rounded-full flex items-center justify-center overflow-hidden border-2 border-white shadow-sm">
                       {getUserPhotoUrl(user?.foto) ? (
                         <img
                           src={getUserPhotoUrl(user?.foto)}
@@ -340,23 +339,33 @@ export default function Header({ onToggleSidebar, isSidebarOpen }) {
                           }}
                         />
                       ) : (
-                        <div className="w-full h-full bg-gradient-to-r from-blue-500 to-purple-500 flex items-center justify-center">
-                          <span className="text-white text-sm font-medium">
+                        <div className="w-full h-full bg-gradient-to-r from-blue-500 to-blue-600 flex items-center justify-center">
+                          <span className="text-white text-sm font-semibold">
                             {getUserInitials(user?.nama)}
                           </span>
                         </div>
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium text-gray-900 truncate">
+                      <div className="text-sm font-bold text-gray-900 truncate">
                         {user?.nama || 'Unknown User'}
                       </div>
-                      <div className="text-xs text-gray-500">
+                      <div className="text-xs text-blue-700 font-medium">
                         {user?.nra || 'N/A'} • {getStatusLabel(user?.status_keanggotaan)}
                       </div>
-                      <div className="text-xs text-gray-400 truncate">
+                      <div className="text-xs text-gray-600 truncate">
                         {user?.email || 'No email'}
                       </div>
+                      {user?.jurusan && (
+                        <div className="text-xs text-gray-600">
+                          {user.jurusan}
+                        </div>
+                      )}
+                      {user?.angkatan && (
+                        <div className="text-xs text-gray-600">
+                          {user.angkatan}
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -365,12 +374,6 @@ export default function Header({ onToggleSidebar, isSidebarOpen }) {
           </div>
         </div>
       </div>
-      
-      {/* Profile Modal */}
-      <ProfileModal 
-        isOpen={showProfileModal}
-        onClose={() => setShowProfileModal(false)}
-      />
     </header>
   );
 }

@@ -8,6 +8,14 @@ import { useAuthorization } from '../../hooks/useAuthorization';
 import { useAuth } from '../../hooks/useAuth';
 import { useNotifications } from '../../hooks/useNotifications';
 
+const statusOptions = [
+  { value: 'anggota', label: 'Anggota' },
+  { value: 'bph', label: 'BPH (Badan Pengurus Harian)' },
+  { value: 'alb', label: 'ALB (Anggota Luar Biasa)' },
+  { value: 'dpo', label: 'DPO (Dewan Pengurus Organisasi)' },
+  { value: 'bp', label: 'BP (Badan Pendiri)' }
+];
+
 export default function EditMemberModal({ 
   isOpen, 
   onClose, 
@@ -556,7 +564,7 @@ export default function EditMemberModal({
                     }`}
                   >
                     <option value="">Pilih Status</option>
-                    {getAvailableStatusOptions().map(option => (
+                    {statusOptions.map((option) => (
                       <option key={option.value} value={option.value}>
                         {option.label}
                       </option>
