@@ -108,6 +108,27 @@ export default function TokenLoginPage() {
         localStorage.setItem('token', jwtToken);
         console.log('JWT Token saved:', jwtToken);
         
+        // Fetch user profile to get user ID and store it
+        try {
+          const profileResponse = await fetch(`${config.api.url}/profile`, {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${jwtToken}`,
+              'Content-Type': 'application/json',
+            },
+          });
+          
+          if (profileResponse.ok) {
+            const profileData = await profileResponse.json();
+            if (profileData.data && profileData.data.id_member) {
+              localStorage.setItem('userId', profileData.data.id_member);
+              console.log('User ID saved:', profileData.data.id_member);
+            }
+          }
+        } catch (profileError) {
+          console.warn('Failed to fetch user profile during token login:', profileError);
+        }
+        
         // Show success notification
         showNotification('success', 'Login berhasil! Mengarahkan ke halaman set password...');
         

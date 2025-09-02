@@ -20,6 +20,15 @@ const retryFetch = async (url, options, maxRetries = 3) => {
   }
 };
 
+const getJurusanLabel = (jurusanCode) => {
+  const jurusanMap = {
+    'J001': 'Front-end',
+    'J002': 'Back-end',
+    'J003': 'System'
+  };
+  return jurusanMap[jurusanCode] || jurusanCode;
+};
+
 export const useAuth = () => {
   const [user, setUser] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -37,6 +46,8 @@ export const useAuth = () => {
 
   const logout = useCallback(() => {
     localStorage.removeItem('token');
+    localStorage.removeItem('userId');
+    localStorage.removeItem('user'); // Also remove user data if exists
     setUser(null);
     router.push('/');
   }, [router]);
@@ -65,19 +76,37 @@ export const useAuth = () => {
         throw new Error(`HTTP ${response.status}`);
       }
 
-      const data = await response.json();
+      // Parse JSON response with error handling
+      let data;
+      try {
+        data = await response.json();
+      } catch (jsonError) {
+        console.error('Error parsing JSON response in useAuth:', jsonError);
+        throw new Error('Server mengembalikan response yang tidak valid');
+      }
 
       if (data.data) {
-        setUser({
+        const userData = {
           id: data.data.id_member || data.data.id,
           nama: data.data.nama || 'Unknown User',
           nra: data.data.nra || 'N/A',
           email: data.data.email || 'N/A',
-          foto: data.data.foto || null,
+          foto: data.data.foto || '',
           status_keanggotaan: data.data.status_keanggotaan || 'anggota',
-          jurusan: data.data.jurusan || 'N/A',
+          jurusan: getJurusanLabel(data.data.jurusan) || 'N/A',
           angkatan: data.data.angkatan || 'N/A',
-        });
+          nomor_hp: data.data.nomor_hp || '',
+          tanggal_dikukuhkan: data.data.tanggal_dikukuhkan || '',
+        };
+        
+        setUser(userData);
+        
+        // Store user ID and user data in localStorage
+        if (userData.id) {
+          localStorage.setItem('userId', userData.id);
+          localStorage.setItem('user', JSON.stringify(userData));
+          console.log('User ID and data saved to localStorage:', userData.id);
+        }
         setError(null);
       } else {
         throw new Error('Invalid response format');

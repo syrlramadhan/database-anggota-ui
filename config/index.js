@@ -6,16 +6,26 @@ const config = {
     uploadsUrl: process.env.NEXT_PUBLIC_UPLOADS_URL || 'http://localhost:8080/uploads',
   },
   endpoints: {
+    // Member endpoints
     member: '/member',
+    memberUpdate: (id) => `/member/${id}`,
     memberProfile: '/profile',
-    notifications: '/notifications',
-    notificationsUnreadCount: '/notifications/unread/count',
-    statusChangeRequest: '/status-change/request',
-    statusChangeAccept: (requestId) => `/status-change/${requestId}/accept`,
-    statusChangeReject: (requestId) => `/status-change/${requestId}/reject`,
-    notificationMarkRead: (notificationId) => `/notifications/${notificationId}/read`,
+    
+    // Notification endpoints - Sesuai dokumentasi API
+    notifications: '/notification/me',
+    notificationsForMember: (memberId) => `/notification/member/${memberId}`,
+    notificationsUnreadCount: '/notification/unread/count',
+    
+    // DPO notification - Endpoint untuk mengirim notifikasi (DPO perlu konfirmasi, lainnya auto-accept)
+    sendDpoNotification: (targetId) => `/notification/dpo/${targetId}`,
+    
+    // Notification status management
+    notificationStatus: (notificationId) => `/notification/${notificationId}/status`,
+    notificationMarkRead: (notificationId) => `/notification/${notificationId}/read`,
+    
+    // File uploads
     uploads: (filename) => `${config.api.uploadsUrl}/${filename}`,
   }
 };
 
-export default config;
+export default config;  

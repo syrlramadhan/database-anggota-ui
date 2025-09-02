@@ -1,98 +1,233 @@
 'use client';
 
-import { Home, Users, Settings, LogOut, X } from 'lucide-react';
+import { Home, Users, Settings, LogOut, X, ChevronDown, User, Database } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { useState, useEffect } from 'react';
 
 export default function Sidebar({ isOpen, onClose, currentPath }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const [expandedSettings, setExpandedSettings] = useState(false);
+  
+  // Get current tab directly from searchParams
+  const currentTab = currentPath?.startsWith('/settings') ? 
+    (searchParams.get('tab') === 'backup' ? 'backup' : 'profile') : 
+    'profile';
+  
+  // Auto-expand settings when on settings page
+  useEffect(() => {
+    if (currentPath?.startsWith('/settings')) {
+      setExpandedSettings(true);
+    }
+  }, [currentPath]);
 
   const sidebarItems = [
     { name: 'Dashboard', icon: Home, href: '/Dashboard', active: currentPath === '/Dashboard' },
     { name: 'Anggota', icon: Users, href: '/members', active: currentPath === '/members' },
-    { name: 'Pengaturan', icon: Settings, href: '/settings', active: currentPath === '/settings' },
+    { 
+      name: 'Pengaturan', 
+      icon: Settings, 
+      href: '/settings', 
+      active: currentPath?.startsWith('/settings'),
+      hasSubmenu: true,
+      submenu: [
+        { 
+          name: 'Edit Profil', 
+          icon: User, 
+          href: '/settings', 
+          // Active jika di settings DAN currentTab adalah 'profile'
+          active: currentPath?.startsWith('/settings') && currentTab === 'profile'
+        },
+        { 
+          name: 'Backup Data', 
+          icon: Database, 
+          href: '/settings?tab=backup', 
+          // Active jika di settings DAN currentTab adalah 'backup'
+          active: currentPath?.startsWith('/settings') && currentTab === 'backup'
+        }
+      ]
+    },
   ];
 
   const handleLogout = () => {
     localStorage.removeItem('token');
+    localStorage.removeItem('userId');
+    localStorage.removeItem('user');
     router.push('/');
   };
 
   return (
     <>
+      {/* Mobile backdrop */}
+      {isOpen && (
+        <div 
+          className="fixed inset-0 bg-black/30 z-30 lg:hidden"
+          onClick={onClose}
+        />
+      )}
+
       {/* Desktop Sidebar */}
-      <div className={`fixed inset-y-0 left-0 z-40 w-64 bg-gradient-to-b from-slate-700 via-slate-800 to-slate-900 text-white shadow-2xl shadow-slate-900/50 transform transition-transform duration-300 ease-in-out ${
+      <div className={`fixed inset-y-0 left-0 z-40 w-72 bg-white border-r border-gray-100 shadow-sm transform transition-all duration-300 ease-out ${
         isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
       }`}>
-        <div className="flex flex-col h-full relative">
-          {/* Decorative gradient overlay */}
-          <div className="absolute inset-0 bg-gradient-to-br from-blue-600/8 via-transparent to-cyan-600/8 pointer-events-none"></div>
+        <div className="flex flex-col h-full">
           {/* Header */}
-          <div className="relative flex items-center justify-center p-4 border-b border-slate-700/50">
-            <div className="flex items-center justify-center group">
-              <div className="relative p-2 rounded-xl transition-all duration-300 group-hover:bg-slate-700/30">
-                <Image 
-                  src="/logo-lanscape.png" 
-                  alt="Database Anggota Logo" 
-                  width={180}
-                  height={45}
-                  className="h-12 w-auto filter group-hover:brightness-110 transition-all duration-300"
-                  priority
-                />
-                <div className="absolute inset-0 bg-gradient-to-r from-blue-400/10 to-cyan-400/10 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-              </div>
-            </div>
+          <div className="flex items-center justify-center p-6 border-b border-gray-100">
+            <Image 
+              src="/logo-lanscape.png" 
+              alt="Database Anggota Logo" 
+              width={180}
+              height={45}
+              className="h-10 w-auto"
+              priority
+            />
             <button
               onClick={onClose}
-              className="absolute right-4 lg:hidden p-2 rounded-md hover:bg-slate-700/50 text-slate-300 hover:text-white transition-all duration-200"
+              className="absolute right-4 lg:hidden p-2 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
             >
               <X className="w-5 h-5" />
             </button>
           </div>
 
           {/* Navigation */}
-          <nav className="flex-1 px-4 py-6 space-y-2 relative z-10">
-            {sidebarItems.map((item) => {
+          <nav className="flex-1 px-6 py-6 space-y-2">
+            {sidebarItems.map((item, index) => {
               const Icon = item.icon;
+              
+              if (item.hasSubmenu) {
+                return (
+                  <div key={item.name} className="space-y-1">
+                    {/* Main menu item with submenu */}
+                    <button
+                      onClick={() => setExpandedSettings(!expandedSettings)}
+                      className={`group flex items-center space-x-3 w-full px-4 py-3 rounded-xl transition-all duration-200 ${
+                        item.active
+                          ? 'bg-blue-600 text-white shadow-md'
+                          : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                      }`}
+                    >
+                      <div className={`p-2 rounded-lg transition-all duration-200 ${
+                        item.active 
+                          ? 'bg-white/20' 
+                          : 'bg-gray-100 group-hover:bg-gray-200'
+                      }`}>
+                        <Icon className={`w-5 h-5 ${
+                          item.active ? 'text-white' : 'text-gray-500 group-hover:text-gray-700'
+                        }`} />
+                      </div>
+                      
+                      <span className={`font-medium text-sm flex-1 text-left ${
+                        item.active ? 'text-white' : 'text-gray-700 group-hover:text-gray-900'
+                      }`}>
+                        {item.name}
+                      </span>
+                      
+                      <div className={`transition-transform duration-200 ${expandedSettings ? 'rotate-180' : ''}`}>
+                        <ChevronDown className={`w-4 h-4 ${
+                          item.active ? 'text-white/80' : 'text-gray-400'
+                        }`} />
+                      </div>
+                    </button>
+                    
+                    {/* Submenu items */}
+                    {expandedSettings && (
+                      <div className="mt-2 ml-2 space-y-1 pl-4 border-l-2 border-gray-100">
+                        {item.submenu.map((subItem, subIndex) => {
+                          const SubIcon = subItem.icon;
+                          return (
+                            <Link
+                              key={subItem.name}
+                              href={subItem.href}
+                              className={`group flex items-center space-x-3 px-3 py-2.5 rounded-lg transition-all duration-200 ${
+                                subItem.active
+                                  ? 'bg-blue-50 text-blue-700 border-l-3 border-blue-500 shadow-sm'
+                                  : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                              }`}
+                              onClick={() => onClose()}
+                            >
+                              <div className={`p-1.5 rounded-md transition-all duration-200 ${
+                                subItem.active 
+                                  ? 'bg-blue-100 shadow-sm' 
+                                  : 'bg-gray-100 group-hover:bg-gray-200'
+                              }`}>
+                                <SubIcon className={`w-4 h-4 ${
+                                  subItem.active ? 'text-blue-600' : 'text-gray-500 group-hover:text-gray-700'
+                                }`} />
+                              </div>
+                              
+                              <span className={`font-medium text-sm ${
+                                subItem.active ? 'text-blue-700' : 'text-gray-700 group-hover:text-gray-900'
+                              }`}>
+                                {subItem.name}
+                              </span>
+                              
+                              {/* Active indicator dot */}
+                              {subItem.active && (
+                                <div className="ml-auto">
+                                  <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                                </div>
+                              )}
+                            </Link>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              }
+              
+              // Regular menu items without submenu
               return (
                 <Link
                   key={item.name}
                   href={item.href}
-                  className={`group flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-300 relative overflow-hidden ${
+                  className={`group flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-200 ${
                     item.active
-                      ? 'bg-gradient-to-r from-blue-600 to-blue-500 text-white shadow-lg shadow-blue-600/30 border border-blue-400/30'
-                      : 'text-slate-300 hover:bg-gradient-to-r hover:from-slate-700/80 hover:to-slate-600/80 hover:text-white hover:shadow-md hover:shadow-slate-900/20 border border-transparent hover:border-slate-600/50'
+                      ? 'bg-blue-600 text-white shadow-md'
+                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                   }`}
                   onClick={() => onClose()}
                 >
-                  <div className={`p-2 rounded-lg transition-all duration-300 ${
+                  <div className={`p-2 rounded-lg transition-all duration-200 ${
                     item.active 
-                      ? 'bg-white/20 shadow-inner' 
-                      : 'group-hover:bg-white/10'
+                      ? 'bg-white/20' 
+                      : 'bg-gray-100 group-hover:bg-gray-200'
                   }`}>
-                    <Icon className="w-5 h-5" />
+                    <Icon className={`w-5 h-5 ${
+                      item.active ? 'text-white' : 'text-gray-500 group-hover:text-gray-700'
+                    }`} />
                   </div>
-                  <span className="font-medium relative z-10">{item.name}</span>
-                  {item.active && (
-                    <div className="absolute right-0 top-1/2 transform -translate-y-1/2 w-1 h-8 bg-white/40 rounded-l-full"></div>
-                  )}
+                  
+                  <span className={`font-medium text-sm ${
+                    item.active ? 'text-white' : 'text-gray-700 group-hover:text-gray-900'
+                  }`}>
+                    {item.name}
+                  </span>
                 </Link>
               );
             })}
           </nav>
 
           {/* Logout Button */}
-          <div className="p-4 border-t border-slate-700/50 relative z-10">
+          <div className="p-6 border-t border-gray-100">
             <button
               onClick={handleLogout}
-              className="group flex items-center space-x-3 w-full px-4 py-3 rounded-xl transition-all duration-300 relative overflow-hidden text-red-400 hover:text-white hover:bg-gradient-to-r hover:from-red-600/80 hover:to-red-500/80 hover:shadow-lg hover:shadow-red-600/20 border border-transparent hover:border-red-500/30"
+              className="group flex items-center space-x-3 w-full px-4 py-3 rounded-xl transition-all duration-200 text-red-500 hover:text-white hover:bg-red-500"
             >
-              <div className="p-2 rounded-lg transition-all duration-300 group-hover:bg-white/20">
+              <div className="p-2 rounded-lg bg-red-50 group-hover:bg-white/20 transition-all duration-200">
                 <LogOut className="w-5 h-5" />
               </div>
-              <span className="font-medium relative z-10">Keluar</span>
+              <span className="font-medium text-sm">Keluar</span>
             </button>
+            
+            {/* Footer info */}
+            <div className="mt-4 text-center">
+              <p className="text-xs text-gray-400">
+                © 2025 Database Anggota
+              </p>
+            </div>
           </div>
         </div>
       </div>

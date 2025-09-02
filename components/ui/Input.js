@@ -24,10 +24,10 @@ export default function Input({
       
       <input
         id={inputId}
-        className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors ${
+        className={`w-full px-4 py-3 bg-white border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 hover:border-gray-400 placeholder-gray-400 ${
           error 
-            ? 'border-red-500 bg-red-50' 
-            : 'border-gray-200 bg-white hover:border-gray-300'
+            ? 'border-red-400 bg-red-50 focus:ring-red-500 focus:border-red-500' 
+            : ''
         } ${className}`}
         aria-invalid={error ? 'true' : 'false'}
         aria-describedby={error ? `${inputId}-error` : undefined}
@@ -35,10 +35,10 @@ export default function Input({
       />
       
       {error && (
-        <p id={`${inputId}-error`} className="text-sm text-red-500 flex items-center">
-          <span className="w-4 h-4 mr-1">⚠️</span>
+        <div id={`${inputId}-error`} className="flex items-center mt-2 text-red-600 text-sm bg-red-50 px-3 py-2 rounded-lg border border-red-200">
+          <span className="mr-2">⚠️</span>
           {error}
-        </p>
+        </div>
       )}
     </div>
   );

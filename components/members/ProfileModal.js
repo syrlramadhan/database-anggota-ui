@@ -5,8 +5,15 @@ import { X, User } from 'lucide-react';
 import Modal from '../ui/Modal';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
+import Select from '../ui/Select';
 import { useAuth } from '../../hooks/useAuth';
 import config from '../../config';
+
+const jurusanOptions = [
+  { value: 'Backend', label: 'Back-end' },
+  { value: 'Front-end', label: 'Front-end' },
+  { value: 'System', label: 'System' }
+];
 
 export default function ProfileModal({ isOpen, onClose }) {
   const { user, updateProfile } = useAuth();
@@ -15,23 +22,24 @@ export default function ProfileModal({ isOpen, onClose }) {
     email: '',
     nomor_hp: '',
     jurusan: '',
-    angkatan: ''
+    angkatan: '',
+    foto: ''
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
-    if (user && isOpen) {
+    if (user) {
       setFormData({
-        nama: user.name || '',
+        nama: user.nama || '',
         email: user.email || '',
         nomor_hp: user.nomor_hp || '',
         jurusan: user.jurusan || '',
-        angkatan: user.angkatan || ''
+        angkatan: user.angkatan || '',
+        foto: user.foto || ''
       });
-      setError('');
     }
-  }, [user, isOpen]);
+  }, [user]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -132,7 +140,6 @@ export default function ProfileModal({ isOpen, onClose }) {
                 required
                 placeholder="Masukkan nama lengkap"
               />
-              
               <Input
                 label="Email"
                 name="email"
@@ -142,34 +149,51 @@ export default function ProfileModal({ isOpen, onClose }) {
                 required
                 placeholder="Masukkan email"
               />
-              
               <Input
                 label="Nomor HP"
                 name="nomor_hp"
                 value={formData.nomor_hp}
                 onChange={handleChange}
+                required
                 placeholder="Masukkan nomor HP"
               />
-              
-              <Input
+              <Select
                 label="Jurusan"
                 name="jurusan"
                 value={formData.jurusan}
                 onChange={handleChange}
-                placeholder="Masukkan jurusan"
+                required
+                placeholder="Pilih Jurusan"
+                options={jurusanOptions}
               />
-              
-              <div className="md:col-span-1">
-                <Input
-                  label="Angkatan"
-                  name="angkatan"
-                  value={formData.angkatan}
-                  onChange={handleChange}
-                  placeholder="Masukkan angkatan"
-                />
-              </div>
-              
-              {/* Display current status (read-only) */}
+              <Input
+                label="Angkatan"
+                name="angkatan"
+                value={formData.angkatan}
+                onChange={handleChange}
+                required
+                placeholder="Masukkan angkatan"
+              />
+              <Input
+                label="NRA"
+                name="nra"
+                value={user?.nra || ''}
+                readOnly
+                placeholder="NRA"
+              />
+              <Input
+                label="Tanggal Dikukuhkan"
+                name="tanggal_dikukuhkan"
+                value={user?.tanggal_dikukuhkan || ''}
+                readOnly
+                placeholder="Tanggal Dikukuhkan"
+              />
+              {formData.foto && (
+                <div className="md:col-span-2 flex flex-col items-start mt-2">
+                  <label className="text-sm text-gray-500 mb-1">Foto Profil</label>
+                  <img src={formData.foto.startsWith('http') ? formData.foto : `/public/${formData.foto}`} alt="Foto Profil" className="w-24 h-24 rounded-full object-cover border" />
+                </div>
+              )}
               <div className="md:col-span-1">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Status Keanggotaan

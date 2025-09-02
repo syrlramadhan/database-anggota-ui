@@ -96,6 +96,8 @@ export default function SetPasswordPage() {
       if (!response.ok) {
         if (response.status === 401) {
           localStorage.removeItem('token');
+          localStorage.removeItem('userId');
+          localStorage.removeItem('user');
           throw new Error('Token tidak valid. Silakan login ulang.');
         }
         throw new Error(data.message || 'Gagal mengatur password. Silakan coba lagi.');

@@ -118,6 +118,7 @@ export default function MembersPage() {
               }
             }
 
+            // Pastikan status ALB tetap ada dalam mapping data
             return {
               id: member.id_member,
               name: cleanName,
@@ -133,10 +134,10 @@ export default function MembersPage() {
                 : 'NA',
               foto: fotoUrl,
               angkatan: member.angkatan || 'N/A',
-              status_keanggotaan: member.status_keanggotaan || 'N/A',
+              // Pastikan semua status termasuk ALB tetap ada
+              status_keanggotaan: member.status_keanggotaan || 'N/A', // ALB akan tetap ada di sini
               jurusan: member.jurusan || 'N/A',
               tanggal_dikukuhkan: member.tanggal_dikukuhkan || 'N/A',
-              // Tambahkan login_token untuk kolom baru (hanya untuk DPO dan BPH)
               login_token: member.login_token || null,
             };
           })

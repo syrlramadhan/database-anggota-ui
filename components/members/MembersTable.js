@@ -53,6 +53,15 @@ export default function MembersTable({
     return statusMap[status] || status;
   };
 
+  const getJurusanLabel = (jurusan) => {
+    const jurusanMap = {
+      'J001': 'Front-end',
+      'J002': 'Back-end',
+      'J003': 'System'
+    };
+    return jurusanMap[jurusan] || jurusan;
+  };
+
   const getAvatarColor = (index) => {
     const colors = [
       'bg-blue-500',
@@ -69,12 +78,20 @@ export default function MembersTable({
 
   const getMemberPhotoUrl = (foto) => {
     if (!foto || foto === 'N/A' || foto === 'Foto') return null;
-    if (foto.startsWith('http')) return foto;
-    if (foto.startsWith('/uploads/') || foto.includes('uploads/')) {
+    let url = '';
+    if (foto.startsWith('http')) {
+      url = foto;
+    } else if (foto.startsWith('/uploads/') || foto.includes('uploads/')) {
       const fileName = foto.replace('/uploads/', '').replace('uploads/', '');
-      return config.endpoints.uploads(fileName);
+      url = config.endpoints.uploads(fileName);
+    } else {
+      url = config.endpoints.uploads(foto);
     }
-    return config.endpoints.uploads(foto);
+    // Add anti-cache param if url exists
+    if (url) {
+      url += (url.includes('?') ? '&' : '?') + 't=' + Date.now();
+    }
+    return url;
   };
 
   const handleEditMember = (member) => {
@@ -174,6 +191,7 @@ export default function MembersTable({
   const handleRedirectToLogin = () => {
     // Clear local storage
     localStorage.removeItem('token');
+    localStorage.removeItem('userId');
     localStorage.removeItem('user');
     
     // Redirect to login page
@@ -189,6 +207,24 @@ export default function MembersTable({
           )
         )
       );
+
+  const getStatusBadge = (status) => {
+    const statusConfig = {
+      'anggota': { bg: 'bg-blue-100', text: 'text-blue-800', label: 'Anggota' },
+      'bph': { bg: 'bg-green-100', text: 'text-green-800', label: 'BPH' },
+      'alb': { bg: 'bg-purple-100', text: 'text-purple-800', label: 'ALB' },
+      'dpo': { bg: 'bg-yellow-100', text: 'text-yellow-800', label: 'DPO' },
+      'bp': { bg: 'bg-red-100', text: 'text-red-800', label: 'BP' }
+    };
+
+    const config = statusConfig[status] || { bg: 'bg-gray-100', text: 'text-gray-800', label: status };
+    
+    return (
+      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${config.bg} ${config.text}`}>
+        {config.label}
+      </span>
+    );
+  };
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-200">
@@ -353,7 +389,7 @@ export default function MembersTable({
                     <td className={`py-4 px-6 text-sm ${
                       isCurrentUserRow ? 'text-blue-800 font-medium' : 'text-gray-600'
                     }`}>
-                      {member.jurusan}
+                      {getJurusanLabel(member.jurusan)}
                     </td>
                     <td className={`py-4 px-6 text-sm ${
                       isCurrentUserRow ? 'text-blue-800 font-medium' : 'text-gray-600'
@@ -385,32 +421,41 @@ export default function MembersTable({
                   {/* Kolom Aksi - hanya untuk DPO dan BPH */}
                   {isAdmin && (
                     <td className="py-4 px-6">
-                      <div className="flex items-center space-x-2">
-                        <button
-                          onClick={() => handleEditMember(member)}
-                          className="p-1 text-blue-600 hover:bg-blue-50 rounded"
-                          title="Edit anggota"
-                        >
-                          <Edit className="w-4 h-4" />
-                        </button>
-                        {member.status_keanggotaan !== 'bp' ? (
+                      {/* Sembunyikan tombol edit dan delete untuk diri sendiri */}
+                      {!isCurrentUserRow ? (
+                        <div className="flex items-center space-x-2">
                           <button
-                            onClick={() => handleDeleteMember(member)}
-                            className="p-1 text-red-600 hover:bg-red-50 rounded"
-                            title="Hapus anggota"
+                            onClick={() => handleEditMember(member)}
+                            className="p-1 text-blue-600 hover:bg-blue-50 rounded"
+                            title="Edit anggota"
                           >
-                            <Trash2 className="w-4 h-4" />
+                            <Edit className="w-4 h-4" />
                           </button>
-                        ) : (
-                          <button
-                            disabled
-                            className="p-1 text-gray-400 cursor-not-allowed rounded"
-                            title="Tidak dapat menghapus Badan Pendiri"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        )}
-                      </div>
+                          {member.status_keanggotaan !== 'bp' ? (
+                            <button
+                              onClick={() => handleDeleteMember(member)}
+                              className="p-1 text-red-600 hover:bg-red-50 rounded"
+                              title="Hapus anggota"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          ) : (
+                            <button
+                              disabled
+                              className="p-1 text-gray-400 cursor-not-allowed rounded"
+                              title="Tidak dapat menghapus Badan Pendiri"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-center">
+                          <span className="text-xs text-blue-600 bg-blue-50 px-3 py-1 rounded-full">
+                            Edit di Pengaturan
+                          </span>
+                        </div>
+                      )}
                     </td>
                   )}
                 </tr>

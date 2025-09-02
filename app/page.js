@@ -132,6 +132,28 @@ export default function LoginPage() {
       if (token) {
         localStorage.setItem('token', token);
         console.log('Token saved:', token);
+        
+        // Fetch user profile to get user ID and store it
+        try {
+          const profileResponse = await fetch(`${config.api.url}/profile`, {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+          });
+          
+          if (profileResponse.ok) {
+            const profileData = await profileResponse.json();
+            if (profileData.data && profileData.data.id_member) {
+              localStorage.setItem('userId', profileData.data.id_member);
+              console.log('User ID saved:', profileData.data.id_member);
+            }
+          }
+        } catch (profileError) {
+          console.warn('Failed to fetch user profile during login:', profileError);
+        }
+        
         router.push('/Dashboard');
       } else {
         throw new Error('Tidak ada token dalam respons server. Struktur respon: ' + JSON.stringify(data));
@@ -151,51 +173,50 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
-      <div className="bg-white rounded-lg shadow-xl p-8 w-full max-w-md">
+    <div className="min-h-screen bg-blue-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md border border-gray-100">
+        {/* Header */}
         <div className="text-center mb-8">
-          <h1 className="text-2xl font-bold text-gray-800 mb-2">
+          <div className="w-16 h-16 bg-blue-600 rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
+            </svg>
+          </div>
+          <h1 className="text-3xl font-bold text-gray-800 mb-2">
             Selamat Datang
           </h1>
           <p className="text-gray-600 text-sm">
-            Akses data anggota secara aman dan cepat.
+            Sistem Manajemen Anggota Coconut Computer Club
           </p>
         </div>
-        <div className="text-center mb-6">
-          <p className="text-gray-500 text-sm mb-1">
-            It is our great pleasure to have
-          </p>
-          <p className="text-gray-500 text-sm">
-            you on board!
-          </p>
-        </div>
-        <form onSubmit={handleSubmit} className="space-y-4">
+
+        {/* Login Form */}
+        <form onSubmit={handleSubmit} className="space-y-6">
           {error && (
-            <div className="text-red-500 text-sm text-center p-3 bg-red-50 rounded-lg" dangerouslySetInnerHTML={{ __html: error }} />
+            <div className="text-red-600 text-sm text-center p-4 bg-red-50 border border-red-200 rounded-lg" dangerouslySetInnerHTML={{ __html: error }} />
           )}
+          
           <div>
-            <label htmlFor="nra" className="block text-sm font-medium text-gray-700 mb-1">
-              NRA
+            <label htmlFor="nra" className="block text-sm font-semibold text-gray-700 mb-2">
+              Nomor Registrasi Anggota (NRA)
             </label>
             <input
               id="nra"
               type="text"
-              placeholder="XX.XX.XXX (contoh: 13.24.005)"
+              placeholder="13.24.005"
               value={nra}
               onChange={handleNRAChange}
-              className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
               required
               disabled={isLoading}
               maxLength={9}
               pattern="\d{2}\.\d{2}\.\d{3}"
               title="Format harus XX.XX.XXX (contoh: 13.24.005)"
             />
-            <p className="text-xs text-gray-500 mt-1">
-              Format: XX.XX.XXX (akan otomatis diformat saat mengetik)
-            </p>
           </div>
+          
           <div>
-            <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="password" className="block text-sm font-semibold text-gray-700 mb-2">
               Kata Sandi
             </label>
             <input
@@ -204,15 +225,16 @@ export default function LoginPage() {
               placeholder="Masukkan kata sandi"
               value={password}
               onChange={handlePasswordChange}
-              className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
               required
               disabled={isLoading}
             />
           </div>
+          
           <button
             type="submit"
-            className={`w-full bg-blue-500 hover:bg-blue-600 text-white font-medium py-3 px-4 rounded-lg transition-colors duration-200 flex items-center justify-center ${
-              isLoading ? 'opacity-50 cursor-not-allowed' : ''
+            className={`w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-lg transition-all duration-200 flex items-center justify-center shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 ${
+              isLoading ? 'opacity-70 cursor-not-allowed' : ''
             }`}
             disabled={isLoading}
           >
@@ -238,19 +260,24 @@ export default function LoginPage() {
                 ></path>
               </svg>
             )}
-            {isLoading ? 'Memproses...' : 'Masuk'}
+            {isLoading ? 'Sedang Masuk...' : 'Masuk'}
           </button>
         </form>
-        <div className="text-center mt-6 space-y-3">
+
+        {/* Divider */}
+        <div className="my-8">
           <div className="flex items-center">
-            <div className="flex-1 border-t border-gray-200"></div>
-            <span className="px-4 text-xs text-gray-500 bg-white">atau</span>
-            <div className="flex-1 border-t border-gray-200"></div>
+            <div className="flex-1 border-t border-gray-300"></div>
+            <span className="px-4 text-sm text-gray-500 bg-white font-medium">Metode Alternatif</span>
+            <div className="flex-1 border-t border-gray-300"></div>
           </div>
-          
+        </div>
+        
+        {/* Token Login */}
+        <div className="space-y-4">
           <button
             type="button"
-            className="w-full bg-purple-500 hover:bg-purple-600 text-white font-medium py-3 px-4 rounded-lg transition-colors duration-200 flex items-center justify-center"
+            className="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 px-4 rounded-lg transition-all duration-200 flex items-center justify-center shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
             onClick={() => router.push('/login-token')}
             disabled={isLoading}
           >
@@ -260,16 +287,30 @@ export default function LoginPage() {
             Login dengan Token
           </button>
           
-          <p className="text-gray-500 text-sm">
-            Belum punya akun?{' '}
-            <button
-              type="button"
-              className="text-blue-500 hover:text-blue-600 font-medium"
-              onClick={() => router.push('/register')}
-              disabled={isLoading}
-            >
-              Daftar
-            </button>
+          {/* Token Information */}
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+            <div className="flex items-start space-x-3">
+              <div className="flex-shrink-0">
+                <svg className="w-5 h-5 text-amber-600 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <div>
+                <h4 className="text-sm font-semibold text-amber-800 mb-1">
+                  Tentang Login Token
+                </h4>
+                <p className="text-xs text-amber-700 leading-relaxed">
+                  Token login Adalah Token Sekali Pakai  <span className="font-semibold">Bagi Yang Sebalumnya Belum Mempunyai Akun</span> Hubungi pengurus untuk mendapatkan token akses.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="text-center mt-8 pt-6 border-t border-gray-200">
+          <p className="text-xs text-gray-500">
+            © 2025 Coconut Computer Club. All rights reserved.
           </p>
         </div>
       </div>

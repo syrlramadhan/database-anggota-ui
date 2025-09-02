@@ -6,16 +6,13 @@ import {
   Mail, 
   Users, 
   Bell, 
-  Database 
+  Database,
+  User
 } from 'lucide-react';
 
 export default function SettingsTabs({ activeTab, onTabChange }) {
   const settingsTabs = [
-    { id: 'general', name: 'General', icon: Settings },
-    { id: 'security', name: 'Security', icon: Shield },
-    { id: 'email', name: 'Email', icon: Mail },
-    { id: 'members', name: 'Members', icon: Users },
-    { id: 'notifications', name: 'Notifications', icon: Bell },
+    { id: 'profile', name: 'Edit Profil Saya', icon: User },
     { id: 'backup', name: 'Backup', icon: Database }
   ];
 

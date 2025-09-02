@@ -15,7 +15,7 @@ export default function MainLayout({ children }) {
   return (
     <AuthGuard>
       <NotificationProvider>
-        <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+        <div className="min-h-screen bg-gray-50">
           {/* Sidebar */}
           <Sidebar 
             isOpen={isSidebarOpen} 
@@ -24,7 +24,7 @@ export default function MainLayout({ children }) {
           />
           
           {/* Main Content - with left margin for fixed sidebar on desktop */}
-          <div className="lg:ml-64 flex flex-col min-h-screen">
+          <div className="lg:ml-72 flex flex-col min-h-screen">
             {/* Header */}
             <Header 
               onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
@@ -33,7 +33,9 @@ export default function MainLayout({ children }) {
             
             {/* Content */}
             <main className="flex-1 p-6 overflow-auto">
-              {children}
+              <div className="max-w-7xl mx-auto">
+                {children}
+              </div>
             </main>
             
             {/* Footer */}
@@ -43,7 +45,7 @@ export default function MainLayout({ children }) {
           {/* Mobile Sidebar Overlay */}
           {isSidebarOpen && (
             <div 
-              className="fixed inset-0 bg-black bg-opacity-50 z-30 lg:hidden"
+              className="fixed inset-0 bg-black/20 z-30 lg:hidden transition-all duration-300"
               onClick={() => setIsSidebarOpen(false)}
             />
           )}

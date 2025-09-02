@@ -8,6 +8,14 @@ import { useAuthorization } from '../../hooks/useAuthorization';
 import { useAuth } from '../../hooks/useAuth';
 import { useNotifications } from '../../hooks/useNotifications';
 
+const statusOptions = [
+  { value: 'anggota', label: 'Anggota' },
+  { value: 'bph', label: 'BPH (Badan Pengurus Harian)' },
+  { value: 'alb', label: 'ALB (Anggota Luar Biasa)' },
+  { value: 'dpo', label: 'DPO (Dewan Pengurus Organisasi)' },
+  { value: 'bp', label: 'BP (Badan Pendiri)' }
+];
+
 export default function EditMemberModal({ 
   isOpen, 
   onClose, 
@@ -16,7 +24,7 @@ export default function EditMemberModal({
 }) {
   const { isAdmin, isCurrentUser } = useAuthorization();
   const { user } = useAuth();
-  const { needsStatusChangeNotification, sendStatusChangeNotification } = useNotifications();
+  const { needsStatusChangeNotification, sendStatusChangeNotification, needsConfirmation } = useNotifications();
   const [formData, setFormData] = useState({
     nama: '',
     nra: '',
@@ -103,7 +111,7 @@ export default function EditMemberModal({
     setNotification({ show: true, type, message });
   };
 
-  // Check if status change needs confirmation notification
+  // Check if status change needs confirmation notification (ONLY for DPO)
   const needsStatusChangeConfirmation = () => {
     if (!user || !member) return false;
     
@@ -115,8 +123,8 @@ export default function EditMemberModal({
     // Only check if status is actually changing
     if (originalStatus === newStatus) return false;
     
-    // Use the notification logic from useNotifications hook
-    return needsStatusChangeNotification(currentUserStatus, originalStatus, newStatus, isEditingSelf);
+    // Only DPO status changes need notification and confirmation
+    return needsConfirmation(newStatus) && needsStatusChangeNotification(currentUserStatus, originalStatus, newStatus, isEditingSelf);
   };
 
   // Check if there are any changes in the form
@@ -293,24 +301,43 @@ export default function EditMemberModal({
       const editingOwnAccount = isEditingOwnAccount();
       const canEditBPJurusan = member?.status_keanggotaan === 'bp' && isAdmin && !isCurrentUser(member?.id);
       
-      // Check if this is a status change that needs notification
-      const needsNotification = needsStatusChangeConfirmation();
+      // Check if this is DPO status change that needs notification
+      const isDpoStatusChange = submitData.status_keanggotaan && 
+        needsConfirmation(submitData.status_keanggotaan) &&
+        needsStatusChangeNotification(user?.status_keanggotaan, originalData.status_keanggotaan, submitData.status_keanggotaan, isCurrentUser(member?.id));
       
-      if (needsNotification && submitData.status_keanggotaan) {
-        // Send notification instead of direct update
+      if (isDpoStatusChange) {
+        // Send notification for DPO status change only
         const originalStatus = originalData.status_keanggotaan;
         const newStatus = submitData.status_keanggotaan;
         
-        await sendStatusChangeNotification(member.id, originalStatus, newStatus);
+        console.log('🔄 Preparing DPO status change notification:');
+        console.log('   Target Member ID:', member.id);
+        console.log('   Original Status:', `"${originalStatus}"`, 'Length:', originalStatus ? originalStatus.length : 'null');
+        console.log('   New Status:', `"${newStatus}"`, 'Length:', newStatus ? newStatus.length : 'null');
         
-        showNotification('success', 'Permintaan perubahan status telah dikirim untuk konfirmasi!');
+        // Validate status values before sending
+        if (!originalStatus || !newStatus) {
+          console.error('❌ Invalid status values - cannot send notification');
+          showNotification('error', 'Status tidak valid, tidak dapat mengirim notifikasi');
+          return;
+        }
+        
+        if (originalStatus.length > 50 || newStatus.length > 50) {
+          console.error('❌ Status values too long for database');
+          showNotification('error', 'Nilai status terlalu panjang untuk database');
+          return;
+        }
+        
+        await sendStatusChangeNotification(member.id, originalStatus, newStatus);
+        showNotification('success', 'Permintaan perubahan status ke DPO telah dikirim dan menunggu konfirmasi dari anggota!');
         
         // Close modal after short delay
         setTimeout(() => {
           onClose();
         }, 2000);
       } else {
-        // Normal update without notification
+        // Direct update for all non-DPO changes (including other status changes)
         await onSubmit(member.id, submitData);
         
         const successMessage = editingOwnAccount ? 'Profile berhasil diperbarui!' : 
@@ -359,7 +386,17 @@ export default function EditMemberModal({
       'bp': 'BP'
     };
     
-    return `Anda akan mengubah status ${member.name} dari ${statusLabels[originalStatus]} menjadi ${statusLabels[newStatus]}. Notifikasi akan dikirim kepada yang bersangkutan. Lanjutkan?`;
+    const isConfirmationNeeded = needsConfirmation(newStatus);
+    
+    if (isConfirmationNeeded) {
+      return `Anda akan mengubah status ${member.name} dari ${statusLabels[originalStatus]} menjadi ${statusLabels[newStatus]}. 
+      
+📋 PERLU KONFIRMASI: Karena ini adalah perubahan ke status DPO, notifikasi akan dikirim dan memerlukan persetujuan dari ${member.name}. Lanjutkan?`;
+    } else {
+      return `Anda akan mengubah status ${member.name} dari ${statusLabels[originalStatus]} menjadi ${statusLabels[newStatus]}. 
+      
+📢 PEMBERITAHUAN: Notifikasi informasi akan dikirim kepada ${member.name} tentang perubahan status ini. Lanjutkan?`;
+    }
   };
 
   const handleChange = (e) => {
@@ -556,7 +593,7 @@ export default function EditMemberModal({
                     }`}
                   >
                     <option value="">Pilih Status</option>
-                    {getAvailableStatusOptions().map(option => (
+                    {statusOptions.map((option) => (
                       <option key={option.value} value={option.value}>
                         {option.label}
                       </option>

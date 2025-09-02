@@ -103,7 +103,7 @@ export default function DashboardPage() {
             <div>
               <h1 className="text-3xl font-bold mb-2">Selamat Datang di Dashboard</h1>
               <p className="text-blue-100 text-lg">
-                Kelola data anggota dengan mudah dan efisien
+                Computer Club Oriented Network Utility And Technology
               </p>
             </div>
           </div>
@@ -234,7 +234,7 @@ export default function DashboardPage() {
                 onClick={() => router.push('/settings')}
               >
                 <TrendingUp className="w-4 h-4 mr-2" />
-                Pengaturan Sistem
+                Pengaturan
               </Button>
             </div>
           </div>

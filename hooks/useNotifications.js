@@ -22,127 +22,144 @@ export const NotificationProvider = ({ children }) => {
   const getAuthHeaders = () => {
     const token = localStorage.getItem('token');
     console.log('🔐 Token check:', token ? 'Token exists' : 'No token found');
-    console.log('🔐 Token length:', token ? token.length : 0);
-    console.log('🔐 Token preview:', token ? `${token.substring(0, 50)}...` : 'N/A');
     
     const headers = {
       'Authorization': `Bearer ${token}`,
       'Content-Type': 'application/json'
     };
     
-    console.log('🔑 Full Authorization header:', headers.Authorization);
     return headers;
   };
 
-  // Fetch notifications from API
+  // Helper function to resolve member names from UUIDs
+  const resolveMemberNames = async (notifications) => {
+    try {
+      const memberIds = new Set();
+      notifications.forEach(notification => {
+        if (notification.from_member) memberIds.add(notification.from_member);
+        if (notification.target_member) memberIds.add(notification.target_member);
+      });
+
+      const memberMap = new Map();
+      
+      // Fetch member details for each UUID
+      for (const memberId of memberIds) {
+        try {
+          const response = await fetch(`${config.api.url}${config.endpoints.memberUpdate(memberId)}`, {
+            headers: getAuthHeaders()
+          });
+          if (response.ok) {
+            const memberData = await response.json();
+            if (memberData.code === 200 && memberData.data) {
+              memberMap.set(memberId, memberData.data.nama || 'Unknown');
+            }
+          }
+        } catch (error) {
+          console.warn(`Failed to fetch member ${memberId}:`, error);
+          memberMap.set(memberId, 'Unknown');
+        }
+      }
+
+      // Enhance notifications with member names
+      return notifications.map(notification => ({
+        ...notification,
+        from_member_name: memberMap.get(notification.from_member) || 'Unknown',
+        target_member_name: memberMap.get(notification.target_member) || 'Unknown'
+      }));
+    } catch (error) {
+      console.error('Failed to resolve member names:', error);
+      return notifications;
+    }
+  };
   const fetchNotifications = async () => {
     console.log('🔄 fetchNotifications called');
     setLoading(true);
     try {
-      const url = `${config.api.url}${config.endpoints.notifications}`;
-      console.log('📡 Fetching from URL:', url);
+      // Get current user untuk menentukan member ID
+      const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+      const userId = currentUser.id;
+      
+      if (!userId) {
+        console.log('❌ No user ID found, cannot fetch notifications');
+        setNotifications([]);
+        setUnreadCount(0);
+        return;
+      }
+      
+      // Gunakan endpoint berdasarkan member ID
+      const url = `${config.api.url}${config.endpoints.notificationsForMember(userId)}`;
+      console.log('📡 Fetching notifications from:', url);
+      console.log('👤 Current User ID:', userId);
       
       const headers = getAuthHeaders();
-      console.log('🔑 Headers:', headers);
+      // Tambahkan X-Member-ID header sesuai dokumentasi API
+      headers['X-Member-ID'] = userId;
+      
+      console.log('📝 Request headers:', headers);
       
       const response = await fetch(url, { headers });
       
-      console.log('📨 Response status:', response.status);
+      console.log('📨 Response status notif:', response.status);
       console.log('📨 Response ok:', response.ok);
       
       if (!response.ok) {
         const errorText = await response.text();
         console.error('❌ Error response:', errorText);
-        throw new Error('Failed to fetch notifications');
+        throw new Error(`Failed to fetch notifications: ${response.status}`);
       }
       
       const data = await response.json();
-      console.log('📦 Response data:', data);
-      console.log('📦 Response data type:', typeof data);
-      console.log('📦 Response data.success:', data.success);
-      console.log('📦 Response data.data:', data.data);
-      console.log('📦 Response data.data type:', typeof data.data);
-      console.log('📦 Response data.data isArray:', Array.isArray(data.data));
+      console.log('📦 API Response:', data);
       
+      // Parse response sesuai dokumentasi API
       let notificationsArray = [];
       
-      // Try different response formats
-      if (Array.isArray(data)) {
+      if (data && data.code === 200 && Array.isArray(data.data)) {
+        console.log('✅ Valid API response with notifications array');
+        notificationsArray = data.data;
+      } else if (Array.isArray(data)) {
         console.log('✅ Direct array response');
         notificationsArray = data;
-      } else if (data && data.success && Array.isArray(data.data)) {
-        console.log('✅ Success response with data array');
-        notificationsArray = data.data;
-      } else if (data && data.data && Array.isArray(data.data)) {
-        console.log('✅ Data object with array');
-        notificationsArray = data.data;
-      } else if (data && Array.isArray(data.notifications)) {
-        console.log('✅ Notifications property array');
-        notificationsArray = data.notifications;
-      } else if (data && data.success && data.data === null) {
-        console.log('✅ Success with null data (empty)');
-        notificationsArray = [];
       } else {
-        console.log('⚠️ Unexpected response format, trying data as array or empty');
-        console.log('⚠️ Full response:', JSON.stringify(data, null, 2));
-        // Last resort: try data property or empty array
-        notificationsArray = Array.isArray(data.data) ? data.data : [];
+        console.log('⚠️ Unexpected response format:', data);
+        notificationsArray = [];
       }
       
-      console.log('📝 Final notifications array to set:', notificationsArray);
-      console.log('📝 Array length:', notificationsArray.length);
+      console.log('📋 Parsed notifications:', notificationsArray);
+      console.log('📊 Notifications count:', notificationsArray.length);
       
-      setNotifications(notificationsArray);
+      // Resolve member names for better display
+      const enhancedNotifications = await resolveMemberNames(notificationsArray);
+      console.log('🏷️ Enhanced notifications with names:', enhancedNotifications);
       
-      // Force re-render by logging after state update (this will show in next render)
-      setTimeout(() => {
-        console.log('⏰ After setState - checking current state...');
-      }, 100);
+      setNotifications(enhancedNotifications);
+      
+      // Update unread count
+      const unread = enhancedNotifications.filter(n => !n.read_at).length;
+      setUnreadCount(unread);
+      console.log('🔔 Unread count:', unread);
+      
     } catch (error) {
       console.error('💥 Failed to fetch notifications:', error);
       setNotifications([]);
+      setUnreadCount(0);
     } finally {
       setLoading(false);
       console.log('✅ fetchNotifications completed');
     }
   };
 
-  // Fetch unread count from API
+  // Fetch unread count - Simplified version
   const fetchUnreadCount = async () => {
-    console.log('🔄 fetchUnreadCount called');
+    console.log('🔄 fetchUnreadCount called - using local calculation');
     try {
-      const url = `${config.api.url}${config.endpoints.notificationsUnreadCount}`;
-      console.log('📡 Fetching unread count from URL:', url);
-      
-      const response = await fetch(url, {
-        headers: getAuthHeaders()
-      });
-      
-      console.log('📨 Unread count response status:', response.status);
-      console.log('📨 Unread count response ok:', response.ok);
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('❌ Unread count error response:', errorText);
-        throw new Error('Failed to fetch unread count');
-      }
-      
-      const data = await response.json();
-      console.log('📦 Unread count response data:', data);
-      
-      if (data.success) {
-        const count = data.data?.unread_count || 0;
-        console.log('✅ Setting unread count:', count);
-        setUnreadCount(count);
-      } else {
-        console.log('⚠️ Unread count API returned success=false, using notification count');
-        setUnreadCount(notifications.filter(n => !n.read_at).length);
-      }
+      // Hitung unread count dari notifications yang ada
+      const unread = notifications.filter(n => !n.read_at).length;
+      setUnreadCount(unread);
+      console.log('✅ Unread count updated:', unread);
     } catch (error) {
-      console.error('💥 Failed to fetch unread count:', error);
-      const fallbackCount = notifications.filter(n => !n.read_at).length;
-      console.log('🔄 Using fallback unread count:', fallbackCount);
-      setUnreadCount(fallbackCount);
+      console.error('💥 Failed to calculate unread count:', error);
+      setUnreadCount(0);
     }
   };
 
@@ -174,98 +191,163 @@ export const NotificationProvider = ({ children }) => {
     }
   };
 
-  // Send status change notification
+  // Send status change notification - Menggunakan API yang sama dengan parameter berbeda
   const sendStatusChangeNotification = async (targetMemberId, fromStatus, toStatus) => {
     try {
-      const response = await fetch(`${config.api.url}${config.endpoints.statusChangeRequest}`, {
+      // Get current user untuk sender ID
+      const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+      const senderId = currentUser.id;
+      
+      if (!senderId) {
+        throw new Error('Sender ID tidak ditemukan');
+      }
+      
+      // Tentukan jenis notifikasi berdasarkan status tujuan
+      const isConfirmationNeeded = needsConfirmation(toStatus);
+      
+      // Gunakan endpoint DPO yang sama untuk semua notifikasi
+      const url = `${config.api.url}${config.endpoints.sendDpoNotification(targetMemberId)}`;
+      
+      const headers = getAuthHeaders();
+      // Tambahkan X-Member-ID header dengan sender ID
+      headers['X-Member-ID'] = senderId;
+      
+      console.log('🔄 Sending status change notification');
+      console.log('📡 URL:', url);
+      console.log('🎯 Target Member ID:', targetMemberId);
+      console.log('👤 Sender ID:', senderId);
+      console.log('📊 Status change:', `${fromStatus} → ${toStatus}`);
+      console.log('🔍 Notification type:', isConfirmationNeeded ? 'DPO Confirmation Required' : 'Auto-Accept Information');
+      console.log('📝 Headers:', headers);
+      
+      // Body dengan parameter untuk membedakan jenis notifikasi
+      const requestBody = {
+        from_status: fromStatus,
+        to_status: toStatus,
+        notification_type: isConfirmationNeeded ? 'confirmation' : 'information',
+        auto_accept: !isConfirmationNeeded  // Parameter untuk langsung accept jika bukan DPO
+      };
+      
+      console.log('📦 Request Body:', JSON.stringify(requestBody, null, 2));
+      
+      const response = await fetch(url, {
         method: 'POST',
-        headers: getAuthHeaders(),
-        body: JSON.stringify({
-          target_member_id: targetMemberId,
-          from_status: fromStatus,
-          to_status: toStatus
-        })
+        headers: headers,
+        body: JSON.stringify(requestBody)
       });
       
+      console.log('📨 Response status:', response.status);
+      console.log('📨 Response ok:', response.ok);
+      
       if (!response.ok) {
-        throw new Error('Failed to send status change notification');
+        const errorText = await response.text();
+        console.error('❌ Error response:', errorText);
+        
+        try {
+          const errorData = JSON.parse(errorText);
+          console.error('🔍 Parsed error:', errorData);
+        } catch (parseError) {
+          console.error('🔍 Could not parse error as JSON');
+        }
+        
+        throw new Error(`Failed to send status change notification: ${response.status}`);
       }
       
       const data = await response.json();
+      console.log('✅ Status change notification sent successfully:', data);
       
-      // Refresh notifications after sending
+      // Refresh notifications setelah mengirim
       await fetchNotifications();
-      await fetchUnreadCount();
       
       return data;
     } catch (error) {
-      console.error('Failed to send status change notification:', error);
+      console.error('💥 Failed to send status change notification:', error);
       throw error;
     }
   };
 
-  // Accept status change
-  const acceptStatusChange = async (requestId) => {
+  // Accept notification - Sesuai dokumentasi API
+  const acceptStatusChange = async (notificationId) => {
     try {
-      const response = await fetch(`${config.api.url}${config.endpoints.statusChangeAccept(requestId)}`, {
+      const url = `${config.api.url}${config.endpoints.notificationStatus(notificationId)}?accepted=true`;
+      
+      console.log('✅ Accepting notification:', notificationId);
+      console.log('📡 URL:', url);
+      
+      const response = await fetch(url, {
         method: 'PUT',
         headers: getAuthHeaders()
       });
       
+      console.log('📨 Accept response status:', response.status);
+      
       if (!response.ok) {
-        throw new Error('Failed to accept status change');
+        const errorText = await response.text();
+        console.error('❌ Failed to accept notification:', errorText);
+        throw new Error(`Failed to accept notification: ${response.status}`);
       }
       
       const data = await response.json();
+      console.log('✅ Notification accepted successfully:', data);
       
-      // Update local state
+      // Update local state immediately
       setNotifications(prev => 
         prev.map(notification => 
-          notification.metadata?.request_id === requestId 
-            ? { ...notification, pending: false, accepted: true }
+          notification.id_notification === notificationId 
+            ? { ...notification, pending: 0, accepted: 1, read_at: new Date().toISOString() }
             : notification
         )
       );
       
-      // Refresh data from server
-      await fetchNotifications();
+      // Update unread count
+      setUnreadCount(prev => Math.max(0, prev - 1));
       
       return data;
     } catch (error) {
-      console.error('Failed to accept status change:', error);
+      console.error('💥 Failed to accept notification:', error);
       throw error;
     }
   };
 
-  // Reject status change
-  const rejectStatusChange = async (requestId) => {
+  // Reject notification - Sesuai dokumentasi API
+  const rejectStatusChange = async (notificationId) => {
     try {
-      const response = await fetch(`${config.api.url}${config.endpoints.statusChangeReject(requestId)}`, {
+      const url = `${config.api.url}${config.endpoints.notificationStatus(notificationId)}?accepted=false`;
+      
+      console.log('❌ Rejecting notification:', notificationId);
+      console.log('📡 URL:', url);
+      
+      const response = await fetch(url, {
         method: 'PUT',
         headers: getAuthHeaders()
       });
       
+      console.log('📨 Reject response status:', response.status);
+      
       if (!response.ok) {
-        throw new Error('Failed to reject status change');
+        const errorText = await response.text();
+        console.error('❌ Failed to reject notification:', errorText);
+        throw new Error(`Failed to reject notification: ${response.status}`);
       }
       
       const data = await response.json();
+      console.log('✅ Notification rejected successfully:', data);
       
-      // Update local state
+      // Update local state immediately
       setNotifications(prev => 
         prev.map(notification => 
-          notification.metadata?.request_id === requestId 
-            ? { ...notification, pending: false, accepted: false }
+          notification.id_notification === notificationId 
+            ? { ...notification, pending: 0, accepted: 0, read_at: new Date().toISOString() }
             : notification
         )
       );
       
-      // Refresh data from server
-      await fetchNotifications();
+      // Update unread count
+      setUnreadCount(prev => Math.max(0, prev - 1));
       
       return data;
     } catch (error) {
-      console.error('Failed to reject status change:', error);
+      console.error('💥 Failed to reject notification:', error);
       throw error;
     }
   };
@@ -275,66 +357,59 @@ export const NotificationProvider = ({ children }) => {
     // Tidak perlu notifikasi jika edit sendiri
     if (isEditingSelf) return false;
 
-    // Aturan yang memerlukan notifikasi:
-    // 1. BPH mengganti status sesama BPH
-    if (currentUserStatus === 'bph' && targetCurrentStatus === 'bph') return true;
+    // Semua perubahan status oleh admin memerlukan notifikasi
+    // Bedanya: DPO perlu konfirmasi, yang lain hanya pemberitahuan
+    const isAdmin = currentUserStatus === 'bph' || currentUserStatus === 'dpo';
     
-    // 2. BPH mengganti status DPO
-    if (currentUserStatus === 'bph' && targetCurrentStatus === 'dpo') return true;
-    
-    // 3. DPO mengganti status sesama DPO  
-    if (currentUserStatus === 'dpo' && targetCurrentStatus === 'dpo') return true;
-    
-    // 4. DPO mengganti status ALB
-    if (currentUserStatus === 'dpo' && targetCurrentStatus === 'alb') return true;
-    
-    // 5. BPH mengganti status ALB
-    if (currentUserStatus === 'bph' && targetCurrentStatus === 'alb') return true;
+    if (!isAdmin) return false;
 
-    // Yang TIDAK perlu notifikasi:
-    // - DPO mengganti status BPH atau anggota
-    // - BPH mengganti status Anggota
-    if (currentUserStatus === 'dpo' && (targetCurrentStatus === 'bph' || targetCurrentStatus === 'anggota')) return false;
-    if (currentUserStatus === 'bph' && targetCurrentStatus === 'anggota') return false;
+    // Aturan yang memerlukan notifikasi:
+    // 1. BPH mengganti status siapa saja
+    if (currentUserStatus === 'bph') return true;
+    
+    // 2. DPO mengganti status siapa saja  
+    if (currentUserStatus === 'dpo') return true;
 
     return false;
   };
 
-  // Load initial data when component mounts
+  // Check if notification needs confirmation (only for DPO status)
+  const needsConfirmation = (targetNewStatus) => {
+    return targetNewStatus === 'dpo';
+  };
+
+  // Initialize notifications on mount
   useEffect(() => {
-    console.log('🚀 useNotifications useEffect triggered');
     const token = localStorage.getItem('token');
-    if (token) {
-      console.log('✅ Token found, loading notifications...');
-      fetchNotifications();
-      fetchUnreadCount();
+    const user = localStorage.getItem('user');
+    
+    if (token && user) {
+      console.log('🚀 Token and user found, fetching notifications...');
+      // Add small delay to ensure components are mounted
+      setTimeout(() => {
+        fetchNotifications();
+      }, 100);
     } else {
-      console.log('❌ No token found, skipping notification load');
+      console.log('⚠️ No token or user found, skipping notification fetch');
+      console.log('Token exists:', !!token);
+      console.log('User exists:', !!user);
     }
   }, []);
 
-  // Debug: Log notifications state changes
+  // Also fetch when user changes
   useEffect(() => {
-    console.log('🔄 Notifications state changed:', notifications);
-    console.log('🔄 Notifications length:', notifications.length);
-    console.log('🔄 Notifications content:', JSON.stringify(notifications, null, 2));
-  }, [notifications]);
+    const handleStorageChange = () => {
+      const token = localStorage.getItem('token');
+      const user = localStorage.getItem('user');
+      
+      if (token && user) {
+        console.log('🔄 Storage changed, re-fetching notifications...');
+        fetchNotifications();
+      }
+    };
 
-  // Debug: Log unread count changes
-  useEffect(() => {
-    console.log('🔢 Unread count changed:', unreadCount);
-  }, [unreadCount]);
-
-  // Refresh notifications periodically (every 30 seconds)
-  useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (!token) return;
-
-    const interval = setInterval(() => {
-      fetchUnreadCount();
-    }, 30000); // 30 seconds
-
-    return () => clearInterval(interval);
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
   }, []);
 
   const value = {
@@ -343,11 +418,11 @@ export const NotificationProvider = ({ children }) => {
     loading,
     fetchNotifications,
     fetchUnreadCount,
-    markAsRead,
     sendStatusChangeNotification,
     acceptStatusChange,
     rejectStatusChange,
     needsStatusChangeNotification,
+    needsConfirmation
   };
 
   return (
