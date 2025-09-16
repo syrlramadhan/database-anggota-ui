@@ -8,7 +8,7 @@ export const useAuthorization = () => {
   // Check if user has admin privileges (DPO or BPH)
   const isAdmin = () => {
     if (!user) return false;
-    return user.status_keanggotaan === 'dpo' || user.status_keanggotaan === 'bph';
+    return user.role === 'dpo' || user.role === 'bph';
   };
 
   // Check if user can add new members
@@ -48,7 +48,7 @@ export const useAuthorization = () => {
       'bp': 'BP'
     };
     
-    return roleMap[user.status_keanggotaan] || 'Unknown';
+    return roleMap[user.role] || 'Unknown';
   };
 
   // Check if current user is the target user

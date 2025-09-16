@@ -8,12 +8,17 @@ import { useAuthorization } from '../../hooks/useAuthorization';
 import { useAuth } from '../../hooks/useAuth';
 import { useNotifications } from '../../hooks/useNotifications';
 
-const statusOptions = [
+const roleOptions = [
   { value: 'anggota', label: 'Anggota' },
   { value: 'bph', label: 'BPH (Badan Pengurus Harian)' },
   { value: 'alb', label: 'ALB (Anggota Luar Biasa)' },
   { value: 'dpo', label: 'DPO (Dewan Pengurus Organisasi)' },
   { value: 'bp', label: 'BP (Badan Pendiri)' }
+];
+
+const statusKeanggotaanOptions = [
+  { value: 'aktif', label: 'Aktif' },
+  { value: 'tidak_aktif', label: 'Tidak Aktif' }
 ];
 
 export default function EditMemberModal({ 
@@ -24,7 +29,7 @@ export default function EditMemberModal({
 }) {
   const { isAdmin, isCurrentUser } = useAuthorization();
   const { user } = useAuth();
-  const { needsStatusChangeNotification, sendStatusChangeNotification } = useNotifications();
+  const { needsRoleChangeNotification, sendRoleChangeNotification } = useNotifications();
   const [formData, setFormData] = useState({
     nama: '',
     nra: '',
@@ -32,6 +37,7 @@ export default function EditMemberModal({
     nomor_hp: '',
     jurusan: '',
     angkatan: '',
+    role: '',
     status_keanggotaan: '',
     tanggal_dikukuhkan: ''
   });
@@ -64,8 +70,8 @@ export default function EditMemberModal({
     }
   }, [notification.show]);
 
-  // Only admin can edit status, but not their own status and not BP (Badan Pendiri)
-  const canEditStatus = isAdmin && !isCurrentUser(member?.id) && member?.status_keanggotaan !== 'bp';
+  // Only admin can edit role, but not their own role and not BP (Badan Pendiri)
+  const canEditRole = isAdmin && !isCurrentUser(member?.id) && member?.role !== 'bp';
   
   // Check if editing own account
   const isEditingOwnAccount = () => {
@@ -82,9 +88,9 @@ export default function EditMemberModal({
   const canEditField = (fieldName) => {
     const editingOwnAccount = isEditingOwnAccount();
     
-    if (fieldName === 'status_keanggotaan') {
-      // Status can only be edited by admin, not for own account, and not for BP
-      return canEditStatus;
+    if (fieldName === 'role') {
+      // Role can only be edited by admin, not for own account, and not for BP
+      return canEditRole;
     }
     
     if (fieldName === 'jurusan') {
@@ -93,50 +99,50 @@ export default function EditMemberModal({
     }
     
     if (editingOwnAccount) {
-      // Current user can edit all their fields except status and jurusan
-      return fieldName !== 'status_keanggotaan' && fieldName !== 'jurusan';
+      // Current user can edit all their fields except role and jurusan
+      return fieldName !== 'role' && fieldName !== 'jurusan';
     }
     
     // Non-current user fields can only be edited by admin
-    // For BP: only jurusan can be edited, status cannot
-    // For others: both status and jurusan can be edited
-    if (member?.status_keanggotaan === 'bp') {
+    // For BP: only jurusan can be edited, role cannot
+    // For others: role and jurusan can be edited
+    if (member?.role === 'bp') {
       return isAdmin && fieldName === 'jurusan';
     }
     
-    return isAdmin && (fieldName === 'status_keanggotaan' || fieldName === 'jurusan');
+    return isAdmin && (fieldName === 'role' || fieldName === 'jurusan');
   };
 
   const showNotification = (type, message) => {
     setNotification({ show: true, type, message });
   };
 
-  // Check if status change needs confirmation notification
-  const needsStatusChangeConfirmation = () => {
+  // Check if role change needs confirmation notification
+  const needsRoleChangeConfirmation = () => {
     if (!user || !member) return false;
     
-    const currentUserStatus = user.status_keanggotaan;
-    const originalStatus = originalData.status_keanggotaan;
-    const newStatus = formData.status_keanggotaan;
+    const currentUserRole = user.role;
+    const originalRole = originalData.role;
+    const newRole = formData.role;
     const isEditingSelf = isCurrentUser(member?.id);
     
-    // Only check if status is actually changing
-    if (originalStatus === newStatus) return false;
+    // Only check if role is actually changing
+    if (originalRole === newRole) return false;
     
     // Use the notification logic from useNotifications hook
-    return needsStatusChangeNotification(currentUserStatus, originalStatus, newStatus, isEditingSelf);
+    return needsRoleChangeNotification(currentUserRole, originalRole, newRole, isEditingSelf);
   };
 
   // Check if there are any changes in the form
   const hasChanges = () => {
     const editingOwnAccount = isEditingOwnAccount();
-    const canEditBPJurusan = member?.status_keanggotaan === 'bp' && isAdmin && !isCurrentUser(member?.id);
+    const canEditBPFields = member?.role === 'bp' && isAdmin && !isCurrentUser(member?.id);
     
     // Check for changes in any editable field
     let hasAnyChanges = false;
     
     if (editingOwnAccount) {
-      // Check editable fields for own account (all except status and jurusan)
+      // Check editable fields for own account (all except role and jurusan)
       hasAnyChanges = (
         formData.nama !== originalData.nama ||
         formData.nra !== originalData.nra ||
@@ -145,15 +151,19 @@ export default function EditMemberModal({
         formData.angkatan !== originalData.angkatan ||
         formData.tanggal_dikukuhkan !== originalData.tanggal_dikukuhkan
       );
-    } else if (canEditBPJurusan) {
-      // For BP, only check jurusan
-      hasAnyChanges = formData.jurusan !== originalData.jurusan;
-    } else if (canEditStatus) {
-      // For admin editing others' status, check both status and jurusan (if not BP)
-      hasAnyChanges = formData.status_keanggotaan !== originalData.status_keanggotaan;
+    } else if (canEditBPFields) {
+      // For BP, check only jurusan
+      hasAnyChanges = (
+        formData.jurusan !== originalData.jurusan
+      );
+    } else if (canEditRole) {
+      // For admin editing others' role
+      hasAnyChanges = (
+        (canEditRole && formData.role !== originalData.role)
+      );
       
       // Also check jurusan if this user can edit it
-      if (member?.status_keanggotaan !== 'bp') {
+      if (member?.role !== 'bp') {
         hasAnyChanges = hasAnyChanges || (formData.jurusan !== originalData.jurusan);
       }
     }
@@ -161,12 +171,12 @@ export default function EditMemberModal({
     return hasAnyChanges;
   };
 
-  // Get available status options based on current status and hierarchy rules
-  const getAvailableStatusOptions = () => {
-    const currentStatus = member?.status_keanggotaan;
+  // Get available role options based on current role and hierarchy rules
+  const getAvailableRoleOptions = () => {
+    const currentRole = member?.role;
     
-    if (!currentStatus) {
-      // If no current status, show all options
+    if (!currentRole) {
+      // If no current role, show all options
       return [
         { value: "anggota", label: "Anggota" },
         { value: "bph", label: "BPH" },
@@ -176,7 +186,7 @@ export default function EditMemberModal({
       ];
     }
 
-    switch (currentStatus) {
+    switch (currentRole) {
       case 'anggota':
         // Anggota bisa naik ke BPH atau langsung ke BP (sementara)
         return [
@@ -226,6 +236,24 @@ export default function EditMemberModal({
     }
   };
 
+  // Status keanggotaan options
+  const statusOptions = [
+    { value: "aktif", label: "Aktif" },
+    { value: "tidak_aktif", label: "Tidak Aktif" }
+  ];
+
+  // Helper functions to transform status values between frontend and backend
+  const transformStatusForFrontend = (backendStatus) => {
+    // Convert any space format to underscore format for frontend consistency
+    if (backendStatus === "tidak aktif") return "tidak_aktif";
+    return backendStatus;
+  };
+
+  const transformStatusForBackend = (frontendStatus) => {
+    // Keep underscore format for backend as well
+    return frontendStatus;
+  };
+
   useEffect(() => {
     if (member && isOpen) {
       const memberData = {
@@ -235,7 +263,8 @@ export default function EditMemberModal({
         nomor_hp: member.nomor_hp || '',
         jurusan: member.jurusan || '',
         angkatan: member.angkatan || '',
-        status_keanggotaan: member.status_keanggotaan || '',
+        role: member.role || '',
+        status_keanggotaan: transformStatusForFrontend(member.status_keanggotaan || ''),
         tanggal_dikukuhkan: member.tanggal_dikukuhkan || ''
       };
       setFormData(memberData);
@@ -246,11 +275,11 @@ export default function EditMemberModal({
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    // Allow submit if editing own account, admin editing status of others, or admin editing BP's jurusan
+    // Allow submit if editing own account, admin editing role of others, or admin editing BP's fields
     const editingOwnAccount = isEditingOwnAccount();
-    const canEditBPJurusan = member?.status_keanggotaan === 'bp' && isAdmin && !isCurrentUser(member?.id);
+    const canEditBPFields = member?.role === 'bp' && isAdmin && !isCurrentUser(member?.id);
     
-    if (!editingOwnAccount && !canEditStatus && !canEditBPJurusan) return;
+    if (!editingOwnAccount && !canEditRole && !canEditBPFields) return;
     
     // Don't submit if no changes
     if (!hasChanges()) return;
@@ -267,25 +296,27 @@ export default function EditMemberModal({
         angkatan: formData.angkatan,
         tanggal_dikukuhkan: formData.tanggal_dikukuhkan
       };
-    } else if (canEditBPJurusan) {
-      // For BP, only submit jurusan
+    } else if (canEditBPFields) {
+      // For BP, submit only jurusan
       submitData = {
         jurusan: formData.jurusan
       };
-    } else if (canEditStatus) {
-      // For admin editing others' status and jurusan (if not BP)
-      submitData = {
-        status_keanggotaan: formData.status_keanggotaan
-      };
+    } else if (canEditRole) {
+      // For admin editing others' role
+      submitData = {};
+      
+      if (canEditRole) {
+        submitData.role = formData.role;
+      }
       
       // Also include jurusan if this is not BP and it has changed
-      if (member?.status_keanggotaan !== 'bp') {
+      if (member?.role !== 'bp') {
         submitData.jurusan = formData.jurusan;
       }
     }
 
-    // Check if status change needs confirmation
-    if (needsStatusChangeConfirmation() && !showConfirmModal) {
+    // Check if role change needs confirmation
+    if (needsRoleChangeConfirmation() && !showConfirmModal) {
       setPendingSubmitData(submitData);
       setShowConfirmModal(true);
       return;
@@ -299,19 +330,25 @@ export default function EditMemberModal({
     setIsSubmitting(true);
     try {
       const editingOwnAccount = isEditingOwnAccount();
-      const canEditBPJurusan = member?.status_keanggotaan === 'bp' && isAdmin && !isCurrentUser(member?.id);
+      const canEditBPFields = member?.role === 'bp' && isAdmin && !isCurrentUser(member?.id);
       
-      // Check if this is a status change that needs notification
-      const needsNotification = needsStatusChangeConfirmation();
+      // Transform status_keanggotaan for backend
+      const transformedSubmitData = { ...submitData };
+      if (transformedSubmitData.status_keanggotaan) {
+        transformedSubmitData.status_keanggotaan = transformStatusForBackend(transformedSubmitData.status_keanggotaan);
+      }
       
-      if (needsNotification && submitData.status_keanggotaan) {
+      // Check if this is a role change that needs notification
+      const needsNotification = needsRoleChangeConfirmation();
+      
+      if (needsNotification && transformedSubmitData.role) {
         // Send notification instead of direct update
-        const originalStatus = originalData.status_keanggotaan;
-        const newStatus = submitData.status_keanggotaan;
+        const originalRole = originalData.role;
+        const newRole = transformedSubmitData.role;
         
-        await sendStatusChangeNotification(member.id, originalStatus, newStatus);
+        await sendRoleChangeNotification(member.id, originalRole, newRole);
         
-        showNotification('success', 'Permintaan perubahan status telah dikirim untuk konfirmasi!');
+        showNotification('success', 'Permintaan perubahan role telah dikirim untuk konfirmasi!');
         
         // Close modal after short delay
         setTimeout(() => {
@@ -319,10 +356,10 @@ export default function EditMemberModal({
         }, 2000);
       } else {
         // Normal update without notification
-        await onSubmit(member.id, submitData);
+        await onSubmit(member.id, transformedSubmitData);
         
         const successMessage = editingOwnAccount ? 'Profile berhasil diperbarui!' : 
-                             canEditBPJurusan ? 'Jurusan berhasil diperbarui!' : 
+                             canEditBPFields ? 'Data BP berhasil diperbarui!' : 
                              'Data anggota berhasil diperbarui!';
         showNotification('success', successMessage);
         
@@ -332,7 +369,7 @@ export default function EditMemberModal({
         }, 1500);
       }
     } catch (error) {
-      console.error('Error updating member status:', error);
+      console.error('Error updating member data:', error);
       showNotification('error', error.message || 'Gagal mengupdate data anggota');
     } finally {
       setIsSubmitting(false);
@@ -353,21 +390,26 @@ export default function EditMemberModal({
   };
 
   const getConfirmationMessage = () => {
-    if (!user || !member) return '';
+    if (!user || !member || !pendingSubmitData) return '';
     
-    const currentUserStatus = user.status_keanggotaan;
-    const originalStatus = originalData.status_keanggotaan;
-    const newStatus = formData.status_keanggotaan;
+    // Check if this is a role change that needs notification
+    if (needsRoleChangeConfirmation() && pendingSubmitData.role) {
+      const originalRole = originalData.role;
+      const newRole = pendingSubmitData.role;
+      
+      const roleLabels = {
+        'anggota': 'Anggota',
+        'bph': 'BPH',
+        'dpo': 'DPO', 
+        'alb': 'ALB',
+        'bp': 'BP'
+      };
+      
+      return `Anda akan mengubah role ${member.nama} dari ${roleLabels[originalRole]} menjadi ${roleLabels[newRole]}. Permintaan ini akan dikirim untuk konfirmasi. Lanjutkan?`;
+    }
     
-    const statusLabels = {
-      'anggota': 'Anggota',
-      'bph': 'BPH',
-      'dpo': 'DPO', 
-      'alb': 'ALB',
-      'bp': 'BP'
-    };
-    
-    return `Anda akan mengubah status ${member.name} dari ${statusLabels[originalStatus]} menjadi ${statusLabels[newStatus]}. Notifikasi akan dikirim kepada yang bersangkutan. Lanjutkan?`;
+    // For regular updates
+    return 'Apakah Anda yakin ingin menyimpan perubahan ini?';
   };
 
   const handleChange = (e) => {
@@ -547,53 +589,53 @@ export default function EditMemberModal({
                   />
                 </div>
                 
-                {/* Status - Only admin can edit */}
+                {/* Role - Only admin can edit (except BP role and own role) */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Status Keanggotaan {canEditStatus && <span className="text-red-500">*</span>}
+                    Role {canEditRole && <span className="text-red-500">*</span>}
                   </label>
                   <select
-                    name="status_keanggotaan"
-                    value={formData.status_keanggotaan}
+                    name="role"
+                    value={formData.role}
                     onChange={handleChange}
-                    disabled={!canEditStatus}
+                    disabled={!canEditRole}
                     className={`w-full px-3 py-2 border rounded-md focus:outline-none ${
-                      !canEditStatus 
+                      !canEditRole 
                         ? 'border-gray-200 bg-gray-200 text-gray-600 cursor-not-allowed' 
                         : 'border-blue-300 bg-white text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm'
                     }`}
                   >
-                    <option value="">Pilih Status</option>
-                    {statusOptions.map((option) => (
+                    <option value="">Pilih Role</option>
+                    {getAvailableRoleOptions().map((option) => (
                       <option key={option.value} value={option.value}>
                         {option.label}
                       </option>
                     ))}
                   </select>
-                  {canEditStatus && (
+                  {canEditRole && (
                     <div className="mt-1 text-xs text-blue-600">
-                      <p>Aturan status: 
-                        {member?.status_keanggotaan === 'anggota' && " Anggota → BPH atau BP"}
-                        {member?.status_keanggotaan === 'bph' && " BPH → Anggota, DPO, atau ALB"}
-                        {member?.status_keanggotaan === 'dpo' && " DPO → ALB (tidak bisa turun)"}
-                        {member?.status_keanggotaan === 'alb' && " ALB → DPO"}
-                        {member?.status_keanggotaan === 'bp' && " BP tidak dapat diubah"}
+                      <p>Aturan role: 
+                        {member?.role === 'anggota' && " Anggota → BPH atau BP"}
+                        {member?.role === 'bph' && " BPH → Anggota, DPO, atau ALB"}
+                        {member?.role === 'dpo' && " DPO → ALB (tidak bisa turun)"}
+                        {member?.role === 'alb' && " ALB → DPO"}
+                        {member?.role === 'bp' && " BP tidak dapat diubah"}
                       </p>
                     </div>
                   )}
-                  {!canEditStatus && !isCurrentUser(member?.id) && member?.status_keanggotaan !== 'bp' && (
+                  {!canEditRole && !isCurrentUser(member?.id) && member?.role !== 'bp' && (
                     <p className="text-xs text-gray-500 mt-1">
-                      Hanya admin yang dapat mengubah status keanggotaan
+                      Hanya admin yang dapat mengubah role
                     </p>
                   )}
-                  {!canEditStatus && isEditingOwnAccount() && (
+                  {!canEditRole && isEditingOwnAccount() && (
                     <p className="mt-1 text-xs text-amber-600">
-                      Untuk mengubah status keanggotaan, hubungi Admin (BPH/DPO)
+                      Untuk mengubah role, hubungi Admin (BPH/DPO)
                     </p>
                   )}
-                  {member?.status_keanggotaan === 'bp' && isAdmin && !isCurrentUser(member?.id) && (
+                  {member?.role === 'bp' && isAdmin && !isCurrentUser(member?.id) && (
                     <p className="text-xs text-red-600 mt-1">
-                      Status BP (Badan Pendiri) tidak dapat diubah
+                      Role BP (Badan Pendiri) tidak dapat diubah
                     </p>
                   )}
                 </div>
@@ -626,22 +668,20 @@ export default function EditMemberModal({
               variant="outline"
               onClick={onClose}
             >
-              {(!canEditStatus && !isEditingOwnAccount() && !(member?.status_keanggotaan === 'bp' && isAdmin && !isCurrentUser(member?.id))) ? 'Tutup' : 'Batal'}
+              Batal
             </Button>
-            {(canEditStatus || isEditingOwnAccount() || (member?.status_keanggotaan === 'bp' && isAdmin && !isCurrentUser(member?.id))) && (
-              <Button
-                type="submit"
-                onClick={handleSubmit}
-                disabled={isSubmitting || !hasChanges()}
-                className={`${
-                  !hasChanges() && !isSubmitting
-                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed hover:bg-gray-300'
-                    : ''
-                }`}
-              >
-                {isSubmitting ? 'Menyimpan...' : 'Simpan'}
-              </Button>
-            )}
+            <Button
+              type="submit"
+              onClick={handleSubmit}
+              disabled={isSubmitting || !hasChanges()}
+              className={`${
+                !hasChanges() && !isSubmitting
+                  ? 'bg-gray-300 text-gray-500 cursor-not-allowed hover:bg-gray-300'
+                  : ''
+              }`}
+            >
+              {isSubmitting ? 'Menyimpan...' : 'Simpan'}
+            </Button>
           </div>
         </div>
       </div>
@@ -703,7 +743,7 @@ export default function EditMemberModal({
               {/* Header */}
               <div className="px-6 py-4 border-b border-gray-200">
                 <h3 className="text-lg font-semibold text-gray-900">
-                  Konfirmasi Perubahan Status
+                  Konfirmasi Perubahan
                 </h3>
               </div>
 

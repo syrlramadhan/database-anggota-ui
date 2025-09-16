@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { X, User, Mail, Hash, Calendar, Building, Users, Camera } from 'lucide-react';
+import { X, User, Mail, Hash, Calendar, Building, Users, Camera, Shield, CheckCircle } from 'lucide-react';
 import Button from '../ui/Button';
 import config from '../../config';
 
@@ -12,11 +12,48 @@ export default function ProfileModal({ isOpen, onClose, user, onUpdate }) {
     nra: '',
     angkatan: '',
     jurusan: '',
-    foto: ''
+    foto: '',
+    role: '',
+    status_keanggotaan: ''
   });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
   const [previewImage, setPreviewImage] = useState(null);
+
+  const getRoleBadge = (role) => {
+    const roleConfig = {
+      'anggota': { label: 'Anggota', color: 'bg-blue-100 text-blue-800' },
+      'bph': { label: 'BPH', color: 'bg-purple-100 text-purple-800' },
+      'dpo': { label: 'DPO', color: 'bg-green-100 text-green-800' },
+      'alb': { label: 'ALB', color: 'bg-yellow-100 text-yellow-800' },
+      'bp': { label: 'BP', color: 'bg-red-100 text-red-800' }
+    };
+    
+    const config = roleConfig[role] || { label: role, color: 'bg-gray-100 text-gray-800' };
+    return (
+      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${config.color}`}>
+        {config.label}
+      </span>
+    );
+  };
+
+  const getStatusBadge = (status) => {
+    const statusConfig = {
+      'aktif': { label: 'Aktif', color: 'bg-green-100 text-green-800', icon: CheckCircle },
+      'tidak_aktif': { label: 'Tidak Aktif', color: 'bg-red-100 text-red-800', icon: X },
+      'tidak aktif': { label: 'Tidak Aktif', color: 'bg-red-100 text-red-800', icon: X } // Backward compatibility
+    };
+    
+    const config = statusConfig[status] || { label: status, color: 'bg-gray-100 text-gray-800', icon: null };
+    const Icon = config.icon;
+    
+    return (
+      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${config.color}`}>
+        {Icon && <Icon className="w-3 h-3 mr-1" />}
+        {config.label}
+      </span>
+    );
+  };
 
   useEffect(() => {
     if (user && isOpen) {
@@ -26,7 +63,9 @@ export default function ProfileModal({ isOpen, onClose, user, onUpdate }) {
         nra: user.nra || '',
         angkatan: user.angkatan || '',
         jurusan: user.jurusan || '',
-        foto: user.foto || ''
+        foto: user.foto || '',
+        role: user.role || '',
+        status_keanggotaan: user.status_keanggotaan || ''
       });
       setPreviewImage(user.foto ? config.endpoints.uploads(user.foto) : null);
     }
@@ -149,6 +188,34 @@ export default function ProfileModal({ isOpen, onClose, user, onUpdate }) {
                 />
               </label>
             </div>
+          </div>
+
+          {/* Role and Status Information */}
+          <div className="bg-gray-50 rounded-lg p-4">
+            <h3 className="text-sm font-medium text-gray-900 mb-3">Informasi Keanggotaan</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <Shield className="w-4 h-4 inline mr-2" />
+                  Role
+                </label>
+                <div className="flex items-center">
+                  {getRoleBadge(formData.role)}
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <CheckCircle className="w-4 h-4 inline mr-2" />
+                  Status Keanggotaan
+                </label>
+                <div className="flex items-center">
+                  {getStatusBadge(formData.status_keanggotaan)}
+                </div>
+              </div>
+            </div>
+            <p className="text-xs text-gray-500 mt-2">
+              *Role dan status keanggotaan hanya dapat diubah oleh administrator
+            </p>
           </div>
 
           {/* Form Fields */}

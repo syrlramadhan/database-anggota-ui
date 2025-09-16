@@ -19,7 +19,8 @@ export default function AddMemberForm({
     foto: null,
     fotoFile: null, // Store the actual file
     angkatan: '',
-    status_keanggotaan: 'anggota', // Default value set to 'anggota'
+    role: 'anggota', // Default value set to 'anggota'
+    status_keanggotaan: 'aktif', // Default to 'aktif'
     jurusan: '',
     tanggal_dikukuhkan: '',
   });
@@ -34,6 +35,25 @@ export default function AddMemberForm({
     { value: 'Frontend', label: 'Frontend' },
     { value: 'System', label: 'System' },
   ];
+
+  const roleOptions = [
+    { value: 'anggota', label: 'Anggota' },
+    { value: 'bph', label: 'BPH' },
+    { value: 'alb', label: 'ALB' },
+    { value: 'dpo', label: 'DPO' },
+    { value: 'bp', label: 'BP' }
+  ];
+
+  const statusKeangotaanOptions = [
+    { value: 'aktif', label: 'Aktif' },
+    { value: 'tidak_aktif', label: 'Tidak Aktif' }
+  ];
+
+  // Helper function to transform status for backend
+  const transformStatusForBackend = (frontendStatus) => {
+    // Keep underscore format for backend as well
+    return frontendStatus;
+  };
 
   const validatePhoto = (file) => {
     if (!file) return null;
@@ -53,7 +73,6 @@ export default function AddMemberForm({
     else if (!/^\d{2}\.\d{2}\.\d{3}$/.test(formData.nra)) errors.nra = 'Format NRA harus XX.XX.XXX (contoh: 13.24.005)';
     if (!formData.angkatan.trim()) errors.angkatan = 'Angkatan wajib dipilih';
     else if (!/^\d{3}$/.test(formData.angkatan)) errors.angkatan = 'Format angkatan harus 3 digit (001, 002, 003, ...)';
-    // Status keanggotaan tidak perlu validasi karena otomatis diset ke 'anggota'
     if (!formData.jurusan) errors.jurusan = 'Jurusan wajib dipilih';
     return errors;
   };
@@ -152,7 +171,8 @@ export default function AddMemberForm({
       foto: null,
       fotoFile: null,
       angkatan: '',
-      status_keanggotaan: 'anggota', // Always reset to 'anggota'
+      role: 'anggota', // Always reset to 'anggota'
+      status_keanggotaan: 'aktif', // Always reset to 'aktif'
       jurusan: '',
       tanggal_dikukuhkan: '',
     });
@@ -178,6 +198,11 @@ export default function AddMemberForm({
       submitData.tanggal_dikukuhkan = `${day}-${month}-${year}`;
     }
     
+    // Transform status_keanggotaan for backend
+    if (submitData.status_keanggotaan) {
+      submitData.status_keanggotaan = transformStatusForBackend(submitData.status_keanggotaan);
+    }
+    
     console.log('Data form yang akan dikirim:', submitData);
     onSubmit(submitData);
     resetForm();
@@ -200,12 +225,12 @@ export default function AddMemberForm({
         <h3 className="text-sm font-semibold text-blue-800 mb-3">Informasi Penting</h3>
         <div className="text-sm text-blue-700 space-y-3">
           <p>
-            Form ini digunakan untuk membuat akun anggota baru dengan data dasar. Admin hanya perlu mengisi 
+            Form ini digunakan untuk membuat akun anggota baru dengan data dasar. Admin perlu mengisi 
             nama, NRA (format XX.XX.XXX), angkatan (format 001-030), jurusan, foto (opsional), dan tanggal dikukuhkan (opsional).
           </p>
           <p>
-            <strong>Status keanggotaan akan otomatis diatur sebagai "Anggota".</strong> Admin dapat mengubah 
-            status ini melalui fitur edit anggota jika diperlukan.
+            Setiap anggota baru akan otomatis memiliki <strong>Role: "Anggota"</strong> dan <strong>Status: "Aktif"</strong>. 
+            Admin dapat mengubah role dan status ini nanti melalui menu edit anggota jika diperlukan.
           </p>
           <p>
             Setelah akun dibuat, sistem akan menghasilkan token login khusus untuk anggota baru tersebut. 
@@ -324,6 +349,9 @@ export default function AddMemberForm({
             required
           />
 
+          {/* Role dan Status Keanggotaan default akan menggunakan nilai otomatis */}
+          {/* Default: Role = 'anggota', Status = 'aktif' */}
+
           {/* Status Keanggotaan Info */}
           <div className="md:col-span-2">
             <div className="bg-green-50 border border-green-200 rounded-lg p-3">
@@ -335,10 +363,10 @@ export default function AddMemberForm({
                 </div>
                 <div className="ml-3">
                   <p className="text-sm font-medium text-green-800">
-                    Status Keanggotaan: <span className="font-semibold">Anggota</span>
+                    Role otomatis: <span className="font-semibold">Anggota</span> | Status otomatis: <span className="font-semibold">Aktif</span>
                   </p>
                   <p className="text-xs text-green-700 mt-1">
-                    Status akan otomatis diatur sebagai "Anggota". Anda dapat mengubahnya nanti melalui fitur edit.
+                    Setiap anggota baru akan otomatis memiliki role "Anggota" dan status "Aktif". Admin dapat mengubah ini nanti melalui menu edit anggota jika diperlukan.
                   </p>
                 </div>
               </div>

@@ -134,8 +134,8 @@ export default function MembersPage() {
                 : 'NA',
               foto: fotoUrl,
               angkatan: member.angkatan || 'N/A',
-              // Pastikan semua status termasuk ALB tetap ada
-              status_keanggotaan: member.status_keanggotaan || 'N/A', // ALB akan tetap ada di sini
+              role: member.role || 'N/A',
+              status_keanggotaan: member.status_keanggotaan || 'N/A',
               jurusan: member.jurusan || 'N/A',
               tanggal_dikukuhkan: member.tanggal_dikukuhkan || 'N/A',
               login_token: member.login_token || null,
@@ -245,15 +245,28 @@ export default function MembersPage() {
       const token = localStorage.getItem('token');
       if (!token) throw new Error('Sesi tidak valid. Silakan login kembali.');
 
+      // Change status instead of deleting
+      const memberData = {
+        status_keanggotaan: 'tidak_aktif'
+      };
+
+      const submitData = new FormData();
+      Object.keys(memberData).forEach(key => {
+        if (memberData[key] !== null && memberData[key] !== undefined && memberData[key] !== '') {
+          submitData.append(key, memberData[key]);
+        }
+      });
+
       await retryFetch(`${config.api.url}${config.endpoints.member}/${member.id}`, {
-        method: 'DELETE',
+        method: 'PUT',
         headers: { Authorization: `Bearer ${token}` },
+        body: submitData,
       });
 
       await fetchMembers();
-      showNotification('success', `Anggota ${member.name} berhasil dihapus!`);
+      showNotification('success', `Status anggota ${member.name} berhasil diubah menjadi tidak aktif!`);
     } catch (err) {
-      const errorMessage = err.message.includes('login kembali') ? err.message : 'Gagal menghapus anggota.';
+      const errorMessage = err.message.includes('login kembali') ? err.message : 'Gagal mengubah status anggota.';
       showNotification('error', errorMessage);
       if (err.message.includes('login kembali')) router.push('/');
     } finally {
@@ -269,15 +282,65 @@ export default function MembersPage() {
       const token = localStorage.getItem('token');
       if (!token) throw new Error('Sesi tidak valid. Silakan login kembali.');
 
+      // Change status instead of deleting
+      const memberData = {
+        status_keanggotaan: 'tidak_aktif'
+      };
+
+      const submitData = new FormData();
+      Object.keys(memberData).forEach(key => {
+        if (memberData[key] !== null && memberData[key] !== undefined && memberData[key] !== '') {
+          submitData.append(key, memberData[key]);
+        }
+      });
+
       await retryFetch(`${config.api.url}${config.endpoints.member}/${member.id}`, {
-        method: 'DELETE',
+        method: 'PUT',
         headers: { Authorization: `Bearer ${token}` },
+        body: submitData,
       });
 
       await fetchMembers();
-      showNotification('success', `Akun Anda berhasil dihapus!`);
+      showNotification('success', `Status akun Anda berhasil diubah menjadi tidak aktif!`);
     } catch (err) {
-      const errorMessage = err.message.includes('login kembali') ? err.message : 'Gagal menghapus akun.';
+      const errorMessage = err.message.includes('login kembali') ? err.message : 'Gagal mengubah status akun.';
+      showNotification('error', errorMessage);
+      if (err.message.includes('login kembali')) router.push('/');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleActivateMember = async (member) => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) throw new Error('Sesi tidak valid. Silakan login kembali.');
+
+      // Change status to active
+      const memberData = {
+        status_keanggotaan: 'aktif'
+      };
+
+      const submitData = new FormData();
+      Object.keys(memberData).forEach(key => {
+        if (memberData[key] !== null && memberData[key] !== undefined && memberData[key] !== '') {
+          submitData.append(key, memberData[key]);
+        }
+      });
+
+      await retryFetch(`${config.api.url}${config.endpoints.member}/${member.id}`, {
+        method: 'PUT',
+        headers: { Authorization: `Bearer ${token}` },
+        body: submitData,
+      });
+
+      await fetchMembers();
+      showNotification('success', `Status anggota ${member.name} berhasil diaktifkan!`);
+    } catch (err) {
+      const errorMessage = err.message.includes('login kembali') ? err.message : 'Gagal mengaktifkan anggota.';
       showNotification('error', errorMessage);
       if (err.message.includes('login kembali')) router.push('/');
     } finally {
@@ -463,6 +526,7 @@ export default function MembersPage() {
           onEditMember={handleEditMember}
           onDeleteMember={handleDeleteMember}
           onDirectDeleteMember={directDeleteMember}
+          onActivateMember={handleActivateMember}
           isLoading={isLoading}
         />
       </div>
@@ -488,20 +552,20 @@ export default function MembersPage() {
             
             {/* Modal */}
             <div className="relative bg-white rounded-lg shadow-xl max-w-md w-full p-6">
-              <div className="flex items-center justify-center w-12 h-12 mx-auto mb-4 bg-red-100 rounded-full">
-                <AlertCircle className="w-6 h-6 text-red-600" />
+              <div className="flex items-center justify-center w-12 h-12 mx-auto mb-4 bg-orange-100 rounded-full">
+                <AlertCircle className="w-6 h-6 text-orange-600" />
               </div>
               
               <div className="text-center mb-6">
                 <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                  Konfirmasi Hapus Anggota
+                  Konfirmasi Nonaktifkan Anggota
                 </h3>
                 <p className="text-sm text-gray-600">
-                  Apakah Anda yakin ingin menghapus anggota{' '}
+                  Apakah Anda yakin ingin menonaktifkan anggota{' '}
                   <span className="font-medium text-gray-900">
                     {confirmDelete.member?.name}
                   </span>
-                  ? Tindakan ini tidak dapat dibatalkan.
+                  ? Status anggota akan diubah menjadi tidak aktif.
                 </p>
               </div>
               
@@ -514,9 +578,9 @@ export default function MembersPage() {
                 </button>
                 <button
                   onClick={confirmDeleteMember}
-                  className="flex-1 px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors"
+                  className="flex-1 px-4 py-2 text-sm font-medium text-white bg-orange-600 hover:bg-orange-700 rounded-lg transition-colors"
                 >
-                  Hapus
+                  Nonaktifkan
                 </button>
               </div>
             </div>

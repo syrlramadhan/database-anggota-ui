@@ -60,8 +60,8 @@ export default function DashboardPage() {
 
   // Calculate statistics
   const totalMembers = members.length;
-  const bphMembers = members.filter(member => member.status_keanggotaan === 'bph').length;
-  const newMembers = members.filter(member => member.status_keanggotaan === 'anggota').length;
+  const bphMembers = members.filter(member => member.role === 'bph').length;
+  const newMembers = members.filter(member => member.role === 'anggota').length;
 
   const stats = [
     {

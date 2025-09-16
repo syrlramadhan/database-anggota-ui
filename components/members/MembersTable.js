@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Search, UserPlus, Edit, Trash2, Key, Copy, X, CheckCircle, AlertCircle } from 'lucide-react';
+import { Search, UserPlus, Edit, Trash2, Key, Copy, X, CheckCircle, AlertCircle, RefreshCw } from 'lucide-react';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
 import EditMemberModal from './EditMemberModal';
@@ -10,14 +10,15 @@ import { useAuth } from '../../hooks/useAuth';
 import config from '../../config';
 
 export default function MembersTable({ 
-  members = [], 
+  members, 
   searchTerm, 
   onSearchChange, 
   onAddMember, 
   onEditMember, 
   onDeleteMember,
   onDirectDeleteMember,
-  isLoading = false
+  onActivateMember,
+  isLoading 
 }) {
   const { canAddMembers, isAdmin, getUserRole, canViewMembers } = useAuthorization();
   const { user } = useAuth();
@@ -28,6 +29,7 @@ export default function MembersTable({
   const [deleteConfirmModal, setDeleteConfirmModal] = useState({ show: false, member: null });
   const [deleteConfirmName, setDeleteConfirmName] = useState('');
   const [selfDeleteRedirect, setSelfDeleteRedirect] = useState({ show: false });
+  const [activeTab, setActiveTab] = useState('aktif'); // State for managing active tab
   
   // Auto hide copy notification after 3 seconds
   React.useEffect(() => {
@@ -42,15 +44,21 @@ export default function MembersTable({
   const showCopyNotification = (type, message) => {
     setCopyNotification({ show: true, type, message });
   };
-  const getStatusLabel = (status) => {
-    const statusMap = {
+  const getRoleLabel = (role) => {
+    const roleMap = {
       'anggota': 'Anggota',
       'bph': 'BPH',
       'alb': 'ALB',
       'dpo': 'DPO',
       'bp': 'BP'
     };
-    return statusMap[status] || status;
+    return roleMap[role] || role;
+  };
+
+  const getStatusKeangotaanLabel = (status) => {
+    if (status === 'aktif') return 'Aktif';
+    if (status === 'tidak_aktif' || status === 'tidak aktif') return 'Tidak Aktif';
+    return status;
   };
 
   const getJurusanLabel = (jurusan) => {
@@ -198,23 +206,58 @@ export default function MembersTable({
     window.location.href = '/';
   };
 
+  // Filter members by tab (active/inactive) and search term
+  const filterMembersByTab = (members, tab) => {
+    return members.filter(member => {
+      const status = member.status_keanggotaan;
+      if (tab === 'aktif') {
+        return status === 'aktif';
+      } else if (tab === 'tidak_aktif') {
+        return status === 'tidak_aktif' || status === 'tidak aktif';
+      }
+      return true;
+    });
+  };
+
+  const filteredMembersByTab = filterMembersByTab(members, activeTab);
+  
+  // Calculate counts for tabs
+  const activeCount = filterMembersByTab(members, 'aktif').length;
+  const inactiveCount = filterMembersByTab(members, 'tidak_aktif').length;
+  
   const filteredMembers = searchTerm.trim() === '' 
-    ? sortMembersWithCurrentUserFirst(members)
+    ? sortMembersWithCurrentUserFirst(filteredMembersByTab)
     : sortMembersWithCurrentUserFirst(
-        members.filter((member) =>
-          ['name', 'nra', 'angkatan', 'status_keanggotaan', 'jurusan', 'tanggal_dikukuhkan'].some((key) =>
+        filteredMembersByTab.filter((member) =>
+          ['name', 'nra', 'angkatan', 'role', 'jurusan', 'tanggal_dikukuhkan'].some((key) =>
             member[key]?.toLowerCase().includes(searchTerm.toLowerCase())
           )
         )
       );
 
-  const getStatusBadge = (status) => {
-    const statusConfig = {
+  const getRoleBadge = (role) => {
+    const roleConfig = {
       'anggota': { bg: 'bg-blue-100', text: 'text-blue-800', label: 'Anggota' },
       'bph': { bg: 'bg-green-100', text: 'text-green-800', label: 'BPH' },
       'alb': { bg: 'bg-purple-100', text: 'text-purple-800', label: 'ALB' },
       'dpo': { bg: 'bg-yellow-100', text: 'text-yellow-800', label: 'DPO' },
       'bp': { bg: 'bg-red-100', text: 'text-red-800', label: 'BP' }
+    };
+
+    const config = roleConfig[role] || { bg: 'bg-gray-100', text: 'text-gray-800', label: role };
+    
+    return (
+      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${config.bg} ${config.text}`}>
+        {config.label}
+      </span>
+    );
+  };
+
+  const getStatusBadge = (status) => {
+    const statusConfig = {
+      'aktif': { bg: 'bg-green-100', text: 'text-green-800', label: 'Aktif' },
+      'tidak_aktif': { bg: 'bg-red-100', text: 'text-red-800', label: 'Tidak Aktif' },
+      'tidak aktif': { bg: 'bg-red-100', text: 'text-red-800', label: 'Tidak Aktif' } // Backward compatibility
     };
 
     const config = statusConfig[status] || { bg: 'bg-gray-100', text: 'text-gray-800', label: status };
@@ -265,6 +308,46 @@ export default function MembersTable({
         </div>
       </div>
 
+      {/* Tabs */}
+      <div className="border-b border-gray-200">
+        <nav className="flex space-x-0" aria-label="Tabs">
+          <button
+            onClick={() => setActiveTab('aktif')}
+            className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === 'aktif'
+                ? 'border-blue-500 text-blue-600 bg-blue-50'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            Anggota Aktif
+            <span className={`ml-2 px-2 py-1 text-xs rounded-full ${
+              activeTab === 'aktif' 
+                ? 'bg-blue-100 text-blue-800' 
+                : 'bg-gray-100 text-gray-600'
+            }`}>
+              {activeCount}
+            </span>
+          </button>
+          <button
+            onClick={() => setActiveTab('tidak_aktif')}
+            className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === 'tidak_aktif'
+                ? 'border-red-500 text-red-600 bg-red-50'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            Anggota Tidak Aktif
+            <span className={`ml-2 px-2 py-1 text-xs rounded-full ${
+              activeTab === 'tidak_aktif' 
+                ? 'bg-red-100 text-red-800' 
+                : 'bg-gray-100 text-gray-600'
+            }`}>
+              {inactiveCount}
+            </span>
+          </button>
+        </nav>
+      </div>
+
       {/* Table */}
       <div className="overflow-x-auto">
         <table className="w-full">
@@ -275,7 +358,7 @@ export default function MembersTable({
               <th className="text-left py-3 px-6 text-sm font-medium text-gray-500">Email</th>
               <th className="text-left py-3 px-6 text-sm font-medium text-gray-500">Nomor HP</th>
               <th className="text-left py-3 px-6 text-sm font-medium text-gray-500">Angkatan</th>
-              <th className="text-left py-3 px-6 text-sm font-medium text-gray-500">Status</th>
+              <th className="text-left py-3 px-6 text-sm font-medium text-gray-500">Role</th>
               <th className="text-left py-3 px-6 text-sm font-medium text-gray-500">Jurusan</th>
               <th className="text-left py-3 px-6 text-sm font-medium text-gray-500">Tanggal Dikukuhkan</th>
               {/* Kolom Token hanya muncul untuk DPO dan BPH */}
@@ -291,7 +374,7 @@ export default function MembersTable({
           <tbody>
             {isLoading ? (
               <tr>
-                <td colSpan={isAdmin ? "10" : "8"} className="py-8 px-6 text-center">
+                <td colSpan={isAdmin ? "11" : "9"} className="py-8 px-6 text-center">
                   <div className="flex flex-col items-center">
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-slate-600 mb-4"></div>
                     <p className="text-gray-500">Memuat data anggota...</p>
@@ -300,8 +383,10 @@ export default function MembersTable({
               </tr>
             ) : filteredMembers.length === 0 ? (
               <tr>
-                <td colSpan={isAdmin ? "10" : "8"} className="py-8 px-6 text-center text-sm text-gray-500">
-                  {searchTerm ? 'Tidak ada anggota yang cocok dengan pencarian' : 'Tidak ada anggota ditemukan'}
+                <td colSpan={isAdmin ? "11" : "9"} className="py-8 px-6 text-center text-sm text-gray-500">
+                  {searchTerm 
+                    ? `Tidak ada anggota ${activeTab === 'aktif' ? 'aktif' : 'tidak aktif'} yang cocok dengan pencarian` 
+                    : `Belum ada anggota ${activeTab === 'aktif' ? 'aktif' : 'tidak aktif'}`}
                 </td>
               </tr>
             ) : (
@@ -381,10 +466,8 @@ export default function MembersTable({
                     }`}>
                       {member.angkatan}
                     </td>
-                    <td className={`py-4 px-6 text-sm ${
-                      isCurrentUserRow ? 'text-blue-800 font-medium' : 'text-gray-600'
-                    }`}>
-                      {getStatusLabel(member.status_keanggotaan)}
+                    <td className="py-4 px-6">
+                      {getRoleBadge(member.role)}
                     </td>
                     <td className={`py-4 px-6 text-sm ${
                       isCurrentUserRow ? 'text-blue-800 font-medium' : 'text-gray-600'
@@ -431,22 +514,36 @@ export default function MembersTable({
                           >
                             <Edit className="w-4 h-4" />
                           </button>
-                          {member.status_keanggotaan !== 'bp' ? (
+                          
+                          {/* Show different actions based on status */}
+                          {member.status_keanggotaan === 'tidak_aktif' ? (
+                            // Activation button for inactive members
                             <button
-                              onClick={() => handleDeleteMember(member)}
-                              className="p-1 text-red-600 hover:bg-red-50 rounded"
-                              title="Hapus anggota"
+                              onClick={() => onActivateMember(member)}
+                              className="p-1 text-green-600 hover:bg-green-50 rounded"
+                              title="Aktifkan anggota"
                             >
-                              <Trash2 className="w-4 h-4" />
+                              <RefreshCw className="w-4 h-4" />
                             </button>
                           ) : (
-                            <button
-                              disabled
-                              className="p-1 text-gray-400 cursor-not-allowed rounded"
-                              title="Tidak dapat menghapus Badan Pendiri"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
+                            // Deactivation button for active members (only if not BP)
+                            member.role !== 'bp' ? (
+                              <button
+                                onClick={() => handleDeleteMember(member)}
+                                className="p-1 text-orange-600 hover:bg-orange-50 rounded"
+                                title="Nonaktifkan anggota"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            ) : (
+                              <button
+                                disabled
+                                className="p-1 text-gray-400 cursor-not-allowed rounded"
+                                title="Tidak dapat menonaktifkan Badan Pendiri"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            )
                           )}
                         </div>
                       ) : (
@@ -471,7 +568,8 @@ export default function MembersTable({
         <div className="p-6 border-t border-gray-200">
           <div className="flex items-center justify-between text-sm text-gray-600">
             <span>
-              Menampilkan {filteredMembers.length} dari {members.length} anggota
+              Menampilkan {filteredMembers.length} dari {filteredMembersByTab.length} anggota {activeTab === 'aktif' ? 'aktif' : 'tidak aktif'}
+              {searchTerm && ` (dari total ${members.length} anggota)`}
             </span>
             <span>
               {searchTerm && `Hasil pencarian untuk "${searchTerm}"`}

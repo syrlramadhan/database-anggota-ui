@@ -92,7 +92,8 @@ export default function BackupSettings({ settings, onSettingChange }) {
         Email: member.email || 'N/A',
         'Nomor HP': member.nomor_hp || 'N/A',
         Angkatan: member.angkatan || 'N/A',
-        Status: member.status_keanggotaan || 'N/A',
+        Role: member.role || 'N/A',
+        'Status Keanggotaan': member.status_keanggotaan || 'N/A',
         Jurusan: member.jurusan || 'N/A',
         'Tanggal Dikukuhkan': member.tanggal_dikukuhkan || 'N/A',
         Alamat: member.alamat || 'N/A'
@@ -308,9 +309,9 @@ export default function BackupSettings({ settings, onSettingChange }) {
       currentY += 6;
 
       const totalAnggota = membersData.length;
-      const totalBPH = membersData.filter(m => m.status_keanggotaan === 'bph').length;
-      const totalDPO = membersData.filter(m => m.status_keanggotaan === 'dpo').length;
-      const totalBP = membersData.filter(m => m.status_keanggotaan === 'bp').length;
+      const totalBPH = membersData.filter(m => m.role === 'bph').length;
+      const totalDPO = membersData.filter(m => m.role === 'dpo').length;
+      const totalBP = membersData.filter(m => m.role === 'bp').length;
 
       const summaryData = [
         ['Total Anggota', totalAnggota.toString()],

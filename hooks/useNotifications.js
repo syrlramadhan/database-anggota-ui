@@ -174,21 +174,21 @@ export const NotificationProvider = ({ children }) => {
     }
   };
 
-  // Send status change notification
-  const sendStatusChangeNotification = async (targetMemberId, fromStatus, toStatus) => {
+  // Send role change notification
+  const sendRoleChangeNotification = async (targetMemberId, fromRole, toRole) => {
     try {
       const response = await fetch(`${config.api.url}${config.endpoints.statusChangeRequest}`, {
         method: 'POST',
         headers: getAuthHeaders(),
         body: JSON.stringify({
           target_member_id: targetMemberId,
-          from_status: fromStatus,
-          to_status: toStatus
+          from_role: fromRole,
+          to_role: toRole
         })
       });
       
       if (!response.ok) {
-        throw new Error('Failed to send status change notification');
+        throw new Error('Failed to send role change notification');
       }
       
       const data = await response.json();
@@ -199,13 +199,13 @@ export const NotificationProvider = ({ children }) => {
       
       return data;
     } catch (error) {
-      console.error('Failed to send status change notification:', error);
+      console.error('Failed to send role change notification:', error);
       throw error;
     }
   };
 
-  // Accept status change
-  const acceptStatusChange = async (requestId) => {
+  // Accept role change
+  const acceptRoleChange = async (requestId) => {
     try {
       const response = await fetch(`${config.api.url}${config.endpoints.statusChangeAccept(requestId)}`, {
         method: 'PUT',
@@ -213,7 +213,7 @@ export const NotificationProvider = ({ children }) => {
       });
       
       if (!response.ok) {
-        throw new Error('Failed to accept status change');
+        throw new Error('Failed to accept role change');
       }
       
       const data = await response.json();
@@ -232,13 +232,13 @@ export const NotificationProvider = ({ children }) => {
       
       return data;
     } catch (error) {
-      console.error('Failed to accept status change:', error);
+      console.error('Failed to accept role change:', error);
       throw error;
     }
   };
 
-  // Reject status change
-  const rejectStatusChange = async (requestId) => {
+  // Reject role change
+  const rejectRoleChange = async (requestId) => {
     try {
       const response = await fetch(`${config.api.url}${config.endpoints.statusChangeReject(requestId)}`, {
         method: 'PUT',
@@ -246,7 +246,7 @@ export const NotificationProvider = ({ children }) => {
       });
       
       if (!response.ok) {
-        throw new Error('Failed to reject status change');
+        throw new Error('Failed to reject role change');
       }
       
       const data = await response.json();
@@ -265,37 +265,37 @@ export const NotificationProvider = ({ children }) => {
       
       return data;
     } catch (error) {
-      console.error('Failed to reject status change:', error);
+      console.error('Failed to reject role change:', error);
       throw error;
     }
   };
 
-  // Check if status change needs notification
-  const needsStatusChangeNotification = (currentUserStatus, targetCurrentStatus, targetNewStatus, isEditingSelf) => {
+    // Check if role change needs notification
+  const needsRoleChangeNotification = (currentUserRole, targetCurrentRole, targetNewRole, isEditingSelf) => {
     // Tidak perlu notifikasi jika edit sendiri
     if (isEditingSelf) return false;
 
     // Aturan yang memerlukan notifikasi:
-    // 1. BPH mengganti status sesama BPH
-    if (currentUserStatus === 'bph' && targetCurrentStatus === 'bph') return true;
+    // 1. BPH mengganti role sesama BPH
+    if (currentUserRole === 'bph' && targetCurrentRole === 'bph') return true;
     
-    // 2. BPH mengganti status DPO
-    if (currentUserStatus === 'bph' && targetCurrentStatus === 'dpo') return true;
+    // 2. BPH mengganti role DPO
+    if (currentUserRole === 'bph' && targetCurrentRole === 'dpo') return true;
     
-    // 3. DPO mengganti status sesama DPO  
-    if (currentUserStatus === 'dpo' && targetCurrentStatus === 'dpo') return true;
+    // 3. DPO mengganti role sesama DPO  
+    if (currentUserRole === 'dpo' && targetCurrentRole === 'dpo') return true;
     
-    // 4. DPO mengganti status ALB
-    if (currentUserStatus === 'dpo' && targetCurrentStatus === 'alb') return true;
+    // 4. DPO mengganti role ALB
+    if (currentUserRole === 'dpo' && targetCurrentRole === 'alb') return true;
     
-    // 5. BPH mengganti status ALB
-    if (currentUserStatus === 'bph' && targetCurrentStatus === 'alb') return true;
+    // 5. BPH mengganti role ALB
+    if (currentUserRole === 'bph' && targetCurrentRole === 'alb') return true;
 
     // Yang TIDAK perlu notifikasi:
-    // - DPO mengganti status BPH atau anggota
-    // - BPH mengganti status Anggota
-    if (currentUserStatus === 'dpo' && (targetCurrentStatus === 'bph' || targetCurrentStatus === 'anggota')) return false;
-    if (currentUserStatus === 'bph' && targetCurrentStatus === 'anggota') return false;
+    // - DPO mengganti role BPH atau anggota
+    // - BPH mengganti role Anggota
+    if (currentUserRole === 'dpo' && (targetCurrentRole === 'bph' || targetCurrentRole === 'anggota')) return false;
+    if (currentUserRole === 'bph' && targetCurrentRole === 'anggota') return false;
 
     return false;
   };
@@ -344,10 +344,10 @@ export const NotificationProvider = ({ children }) => {
     fetchNotifications,
     fetchUnreadCount,
     markAsRead,
-    sendStatusChangeNotification,
-    acceptStatusChange,
-    rejectStatusChange,
-    needsStatusChangeNotification,
+    sendRoleChangeNotification,
+    acceptRoleChange,
+    rejectRoleChange,
+    needsRoleChangeNotification,
   };
 
   return (

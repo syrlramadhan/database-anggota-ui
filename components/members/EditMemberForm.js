@@ -17,6 +17,7 @@ export default function EditMemberForm({
     nra: '',
     foto: null,
     angkatan: '',
+    role: '',
     status_keanggotaan: '',
     jurusan: '',
     tanggal_dikukuhkan: '',
@@ -27,17 +28,18 @@ export default function EditMemberForm({
 
   const MAX_FILE_SIZE = 2 * 1024 * 1024; // 2MB
   const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/gif'];
-  const ALLOWED_STATUSES = ['anggota', 'bph', 'alb', 'dpo', 'bp'];
+  const ALLOWED_ROLES = ['anggota', 'bph', 'alb', 'dpo', 'bp'];
+  const ALLOWED_STATUS_KEANGGOTAAN = ['aktif', 'tidak aktif'];
 
-  const getStatusLabel = (status) => {
-    const statusLabels = {
+  const getRoleLabel = (role) => {
+    const roleLabels = {
       'anggota': 'Anggota',
       'bph': 'Badan Pengurus Harian',
       'alb': 'Anggota Luar Biasa',
       'dpo': 'Dewan Pertimbangan Organisasi',
       'bp': 'Badan Pendiri'
     };
-    return statusLabels[status] || status;
+    return roleLabels[role] || role;
   };
 
   const formatNRA = (value) => {
@@ -80,9 +82,12 @@ export default function EditMemberForm({
     else if (!/^\d{2}\.\d{2}\.\d{3}$/.test(formData.nra)) errors.nra = 'Format NRA harus XX.XX.XXX (contoh: 13.24.005)';
     if (!formData.angkatan.trim()) errors.angkatan = 'Angkatan wajib diisi';
     else if (formData.angkatan.length > 4) errors.angkatan = 'Angkatan maksimum 4 karakter';
+    if (!formData.role) errors.role = 'Role wajib dipilih';
+    else if (!ALLOWED_ROLES.includes(formData.role))
+      errors.role = `Role harus salah satu dari: ${ALLOWED_ROLES.join(', ')}`;
     if (!formData.status_keanggotaan) errors.status_keanggotaan = 'Status keanggotaan wajib dipilih';
-    else if (!ALLOWED_STATUSES.includes(formData.status_keanggotaan))
-      errors.status_keanggotaan = `Status harus salah satu dari: ${ALLOWED_STATUSES.join(', ')}`;
+    else if (!ALLOWED_STATUS_KEANGGOTAAN.includes(formData.status_keanggotaan))
+      errors.status_keanggotaan = `Status harus salah satu dari: ${ALLOWED_STATUS_KEANGGOTAAN.join(', ')}`;
     if (!formData.jurusan) errors.jurusan = 'Jurusan wajib dipilih';
     return errors;
   };
@@ -101,6 +106,7 @@ export default function EditMemberForm({
         nra: member.nra || '',
         foto: member.foto || null,
         angkatan: member.angkatan || '',
+        role: member.role || '',
         status_keanggotaan: member.status_keanggotaan || '',
         jurusan: member.jurusan || '',
         tanggal_dikukuhkan: member.tanggal_dikukuhkan ? member.tanggal_dikukuhkan.split('-').reverse().join('-') : '',
@@ -185,6 +191,7 @@ export default function EditMemberForm({
       formDataToSend.append('nama', formData.nama.trim());
       formDataToSend.append('nra', formData.nra.trim());
       formDataToSend.append('angkatan', formData.angkatan.trim());
+      formDataToSend.append('role', formData.role);
       formDataToSend.append('status_keanggotaan', formData.status_keanggotaan);
       formDataToSend.append('jurusan', formData.jurusan);
       
@@ -329,10 +336,26 @@ export default function EditMemberForm({
           error={formErrors.status_keanggotaan}
           required
         >
-          <option value="">Pilih status</option>
-          {ALLOWED_STATUSES.map((status) => (
+          <option value="">Pilih status keanggotaan</option>
+          {ALLOWED_STATUS_KEANGGOTAAN.map((status) => (
             <option key={status} value={status}>
-              {getStatusLabel(status)}
+              {status === 'aktif' ? 'Aktif' : 'Tidak Aktif'}
+            </option>
+          ))}
+        </Select>
+
+        <Select
+          label="Role"
+          name="role"
+          value={formData.role}
+          onChange={handleInputChange}
+          error={formErrors.role}
+          required
+        >
+          <option value="">Pilih role</option>
+          {ALLOWED_ROLES.map((role) => (
+            <option key={role} value={role}>
+              {getRoleLabel(role)}
             </option>
           ))}
         </Select>

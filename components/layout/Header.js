@@ -17,8 +17,8 @@ export default function Header({ onToggleSidebar, isSidebarOpen }) {
   const { 
     notifications, 
     unreadCount, 
-    acceptStatusChange, 
-    rejectStatusChange, 
+    acceptRoleChange, 
+    rejectRoleChange, 
     markAsRead,
     fetchNotifications,
     fetchUnreadCount,
@@ -114,15 +114,19 @@ export default function Header({ onToggleSidebar, isSidebarOpen }) {
     return () => clearInterval(interval);
   }, [forceUserRefresh, fetchNotifications, fetchUnreadCount]);
 
-  const getStatusLabel = (status) => {
-    const statusMap = {
+  const getRoleLabel = (role) => {
+    const roleMap = {
       'anggota': 'Anggota',
       'bph': 'BPH',
       'alb': 'ALB',
       'dpo': 'DPO',
       'bp': 'BP'
     };
-    return statusMap[status] || status;
+    return roleMap[role] || role;
+  };
+
+  const getStatusKeangotaanLabel = (status) => {
+    return status === 'aktif' ? 'Aktif' : 'Tidak Aktif';
   };
 
   const getUserInitials = (nama) => {
@@ -148,9 +152,9 @@ export default function Header({ onToggleSidebar, isSidebarOpen }) {
     return `${config.endpoints.uploads(foto)}?${refreshParam}`;
   };
 
-  const handleAcceptStatusChange = async (requestId) => {
+  const handleAcceptRoleChange = async (requestId) => {
     try {
-      await acceptStatusChange(requestId);
+      await acceptRoleChange(requestId);
       
       // Trigger immediate refresh
       await forceUserRefresh();
@@ -159,25 +163,25 @@ export default function Header({ onToggleSidebar, isSidebarOpen }) {
       
       // Dispatch update event
       const event = new CustomEvent('dataUpdated', { 
-        detail: { type: 'status_accepted', requestId } 
+        detail: { type: 'role_accepted', requestId } 
       });
       window.dispatchEvent(event);
       
       // Save to localStorage
       localStorage.setItem('data_updated', JSON.stringify({
-        type: 'status_accepted',
+        type: 'role_accepted',
         requestId,
         timestamp: Date.now()
       }));
       
     } catch (error) {
-      console.error('Failed to accept status change:', error);
+      console.error('Failed to accept role change:', error);
     }
   };
 
-  const handleRejectStatusChange = async (requestId) => {
+  const handleRejectRoleChange = async (requestId) => {
     try {
-      await rejectStatusChange(requestId);
+      await rejectRoleChange(requestId);
       
       // Trigger immediate refresh
       await forceUserRefresh();
@@ -186,19 +190,19 @@ export default function Header({ onToggleSidebar, isSidebarOpen }) {
       
       // Dispatch update event
       const event = new CustomEvent('dataUpdated', { 
-        detail: { type: 'status_rejected', requestId } 
+        detail: { type: 'role_rejected', requestId } 
       });
       window.dispatchEvent(event);
       
       // Save to localStorage
       localStorage.setItem('data_updated', JSON.stringify({
-        type: 'status_rejected',
+        type: 'role_rejected',
         requestId,
         timestamp: Date.now()
       }));
       
     } catch (error) {
-      console.error('Failed to reject status change:', error);
+      console.error('Failed to reject role change:', error);
     }
   };
 
@@ -400,14 +404,14 @@ export default function Header({ onToggleSidebar, isSidebarOpen }) {
                               {notification.pending && (
                                 <div className="flex items-center space-x-2 mt-2">
                                   <button
-                                    onClick={() => handleAcceptStatusChange(notification.metadata?.request_id)}
+                                    onClick={() => handleAcceptRoleChange(notification.metadata?.request_id)}
                                     className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-green-100 text-green-800 hover:bg-green-200 transition-colors"
                                   >
                                     <Check className="w-3 h-3 mr-1" />
                                     Terima
                                   </button>
                                   <button
-                                    onClick={() => handleRejectStatusChange(notification.metadata?.request_id)}
+                                    onClick={() => handleRejectRoleChange(notification.metadata?.request_id)}
                                     className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-red-100 text-red-800 hover:bg-red-200 transition-colors"
                                   >
                                     <X className="w-3 h-3 mr-1" />
@@ -491,7 +495,7 @@ export default function Header({ onToggleSidebar, isSidebarOpen }) {
                   {isLoading ? 'Memuat...' : (user?.nama || 'User')}
                 </div>
                 <div className="text-xs text-gray-500">
-                  {isLoading ? '' : getStatusLabel(user?.status_keanggotaan)}
+                  {isLoading ? '' : getRoleLabel(user?.role)}
                 </div>
               </div>
               
@@ -533,7 +537,10 @@ export default function Header({ onToggleSidebar, isSidebarOpen }) {
                         {user?.nama || 'Unknown User'}
                       </div>
                       <div className="text-xs text-blue-700 font-medium">
-                        {user?.nra || 'N/A'} • {getStatusLabel(user?.status_keanggotaan)}
+                        {user?.nra || 'N/A'} • {getRoleLabel(user?.role)}
+                      </div>
+                      <div className="text-xs text-gray-600">
+                        Status: {getStatusKeangotaanLabel(user?.status_keanggotaan)}
                       </div>
                       <div className="text-xs text-gray-600 truncate">
                         {user?.email || 'No email'}

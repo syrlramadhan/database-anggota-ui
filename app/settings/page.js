@@ -41,13 +41,14 @@ function EditProfileForm({ user, updateProfile, refetch }) {
     fotoFile: null,
     nra: '',
     tanggal_dikukuhkan: '',
+    role: '',
     status_keanggotaan: ''
   });
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Check if user is admin (BPH or DPO)
-  const isAdmin = user && (user.status_keanggotaan === 'bph' || user.status_keanggotaan === 'dpo');
+  const isAdmin = user && (user.role === 'bph' || user.role === 'dpo');
 
   useEffect(() => {
     if (user) {
@@ -61,6 +62,7 @@ function EditProfileForm({ user, updateProfile, refetch }) {
         fotoFile: null,
         nra: user.nra || '',
         tanggal_dikukuhkan: user.tanggal_dikukuhkan || '',
+        role: user.role || '',
         status_keanggotaan: user.status_keanggotaan || ''
       });
     }
@@ -251,13 +253,24 @@ function EditProfileForm({ user, updateProfile, refetch }) {
               </div>
             </div>
 
+            {/* Role - Read Only untuk semua */}
+            <div className="space-y-1">
+              <label className="block text-sm font-medium text-gray-600 mb-1">Role</label>
+              <div className="inline-flex items-center px-4 py-2 bg-white border border-gray-200 rounded-lg shadow-sm">
+                <span className="w-3 h-3 bg-blue-500 rounded-full mr-3"></span>
+                <span className="text-gray-900 font-medium">
+                  {getRoleLabel(formData.role)}
+                </span>
+              </div>
+            </div>
+
             {/* Status Keanggotaan - Read Only untuk semua */}
             <div className="space-y-1">
               <label className="block text-sm font-medium text-gray-600 mb-1">Status Keanggotaan</label>
               <div className="inline-flex items-center px-4 py-2 bg-white border border-gray-200 rounded-lg shadow-sm">
-                <span className="w-3 h-3 bg-blue-500 rounded-full mr-3"></span>
+                <span className={`w-3 h-3 rounded-full mr-3 ${formData.status_keanggotaan === 'aktif' ? 'bg-green-500' : 'bg-red-500'}`}></span>
                 <span className="text-gray-900 font-medium">
-                  {getStatusLabel(formData.status_keanggotaan)}
+                  {getStatusKeangotaanLabel(formData.status_keanggotaan)}
                 </span>
               </div>
             </div>
@@ -321,16 +334,21 @@ function BackupSection() {
   );
 }
 
-// Helper function untuk status label
-const getStatusLabel = (status) => {
-  const statusMap = {
+// Helper function untuk role label
+const getRoleLabel = (role) => {
+  const roleMap = {
     'anggota': 'Anggota',
     'bph': 'BPH (Badan Pengurus Harian)',
     'alb': 'ALB (Anggota Luar Biasa)',
     'dpo': 'DPO (Dewan Pertimbangan Organisasi)',
     'bp': 'BP (Badan Pendiri)'
   };
-  return statusMap[status] || status?.toUpperCase() || 'Tidak tersedia';
+  return roleMap[role] || role?.toUpperCase() || 'Tidak tersedia';
+};
+
+// Helper function untuk status keanggotaan label
+const getStatusKeangotaanLabel = (status) => {
+  return status === 'aktif' ? 'Aktif' : 'Tidak Aktif';
 };
 
 // Content component yang tidak menggunakan useSearchParams langsung
