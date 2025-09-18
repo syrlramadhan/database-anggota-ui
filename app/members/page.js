@@ -181,9 +181,6 @@ export default function MembersPage() {
         }
       });
 
-      console.log('Updating member with ID:', memberId);
-      console.log('Member data:', memberData);
-
       const response = await fetch(`${config.api.url}${config.endpoints.member}/${memberId}`, {
         method: 'PUT',
         headers: {
@@ -198,7 +195,6 @@ export default function MembersPage() {
       }
 
       const result = await response.json();
-      console.log('Update response:', result);
       
       // Update local state with the correct state setter
       setMembersData(prev => prev.map(member => 
@@ -360,8 +356,6 @@ export default function MembersPage() {
       const token = localStorage.getItem('token');
       if (!token) throw new Error('Sesi tidak valid. Silakan login kembali.');
 
-      console.log('Form data yang akan dikirim:', formData);
-
       // Create FormData for file upload
       const submitData = new FormData();
       
@@ -379,7 +373,6 @@ export default function MembersPage() {
       // Handle foto separately - use actual file if exists
       if (formData.fotoFile) {
         submitData.append('foto', formData.fotoFile);
-        console.log('Foto berhasil ditambahkan:', formData.fotoFile.name, formData.fotoFile.size, 'bytes');
       } else if (formData.foto && formData.foto.startsWith('data:image/')) {
         try {
           // Fallback: Convert base64 to blob if fotoFile not available
@@ -392,18 +385,10 @@ export default function MembersPage() {
           const fileName = `profile.${extension}`;
           
           submitData.append('foto', blob, fileName);
-          console.log('Foto berhasil dikonversi ke blob:', blob.size, 'bytes');
         } catch (fotoError) {
           console.warn('Error processing foto:', fotoError);
           // Continue without foto if there's an error
         }
-      } else {
-        console.log('Tidak ada foto yang dipilih atau format tidak valid');
-      }
-
-      console.log('Data yang akan dikirim ke API:');
-      for (let pair of submitData.entries()) {
-        console.log(pair[0], pair[1] instanceof Blob ? `File: ${pair[1].size} bytes` : pair[1]);
       }
 
       const response = await retryFetch(`${config.api.url}${config.endpoints.member}`, {
@@ -415,7 +400,6 @@ export default function MembersPage() {
       });
 
       const responseData = await response.json();
-      console.log('Response dari API:', responseData);
 
       if (!response.ok) {
         throw new Error(responseData.message || 'Gagal menambah anggota');

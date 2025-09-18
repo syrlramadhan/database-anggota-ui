@@ -127,10 +127,13 @@ export default function EditMemberModal({
     const isEditingSelf = isCurrentUser(member?.id);
     
     // Only check if role is actually changing
-    if (originalRole === newRole) return false;
+    if (originalRole === newRole) {
+      return false;
+    }
     
     // Use the notification logic from useNotifications hook
-    return needsRoleChangeNotification(currentUserRole, originalRole, newRole, isEditingSelf);
+    const result = needsRoleChangeNotification(currentUserRole, originalRole, newRole, isEditingSelf);
+    return result;
   };
 
   // Check if there are any changes in the form
@@ -616,7 +619,7 @@ export default function EditMemberModal({
                     <div className="mt-1 text-xs text-blue-600">
                       <p>Aturan role: 
                         {member?.role === 'anggota' && " Anggota → BPH atau BP"}
-                        {member?.role === 'bph' && " BPH → Anggota, DPO, atau ALB"}
+                        {member?.role === 'bph' && " BPH → Anggota, DPO, atau ALB (DPO memerlukan notifikasi)"}
                         {member?.role === 'dpo' && " DPO → ALB (tidak bisa turun)"}
                         {member?.role === 'alb' && " ALB → DPO"}
                         {member?.role === 'bp' && " BP tidak dapat diubah"}

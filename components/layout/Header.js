@@ -12,6 +12,10 @@ export default function Header({ onToggleSidebar, isSidebarOpen }) {
   const [showNotifications, setShowNotifications] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [forceRefresh, setForceRefresh] = useState(0);
+  const [imageLoadState, setImageLoadState] = useState({
+    header: 'loading', // loading, loaded, error
+    dropdown: 'loading'
+  });
   const { user, isLoading, refetch } = useAuth();
   const router = useRouter();
   const { 
@@ -214,6 +218,7 @@ export default function Header({ onToggleSidebar, isSidebarOpen }) {
       await fetchNotifications();
       await fetchUnreadCount();
       
+      // Force recalculation of unread count
       // Dispatch update event
       const event = new CustomEvent('notificationUpdated', { 
         detail: { type: 'mark_read', notificationId } 
@@ -276,19 +281,35 @@ export default function Header({ onToggleSidebar, isSidebarOpen }) {
   };
 
   // Function to handle image load error
-  const handleImageError = async (e) => {
-    e.target.style.display = 'none';
-    const fallback = e.target.nextSibling;
-    if (fallback) {
-      fallback.style.display = 'flex';
-    }
-    
-    // Try to refresh user data jika gambar gagal load
-    console.log('Image load error, refreshing user data...');
-    setTimeout(async () => {
-      await forceUserRefresh();
-    }, 1000);
+  const handleImageError = async (e, location = 'header') => {
+    console.log(`Image load error for ${location}, switching to fallback...`);
+    setImageLoadState(prev => ({
+      ...prev,
+      [location]: 'error'
+    }));
   };
+
+  const handleImageLoad = (location = 'header') => {
+    setImageLoadState(prev => ({
+      ...prev,
+      [location]: 'loaded'
+    }));
+  };
+
+  // Reset image load state when user changes or forceRefresh changes
+  useEffect(() => {
+    if (user?.foto) {
+      setImageLoadState({
+        header: 'loading',
+        dropdown: 'loading'
+      });
+    } else {
+      setImageLoadState({
+        header: 'error',
+        dropdown: 'error'
+      });
+    }
+  }, [user?.foto, forceRefresh]);
 
   return (
     <header className="sticky top-0 z-30 bg-white border-b border-gray-200 shadow-sm">
@@ -465,21 +486,22 @@ export default function Header({ onToggleSidebar, isSidebarOpen }) {
               <div className="w-8 h-8 rounded-full flex items-center justify-center overflow-hidden border-2 border-gray-200">
                 {isLoading ? (
                   <div className="w-full h-full bg-gray-200 animate-pulse"></div>
-                ) : getUserPhotoUrl(user?.foto) ? (
-                  <>
+                ) : getUserPhotoUrl(user?.foto) && imageLoadState.header !== 'error' ? (
+                  <div className="relative w-full h-full">
+                    {imageLoadState.header === 'loading' && (
+                      <div className="absolute inset-0 bg-gray-200 animate-pulse"></div>
+                    )}
                     <img
                       src={getUserPhotoUrl(user?.foto)}
                       alt={`Foto ${user?.nama}`}
-                      className="w-full h-full object-cover"
-                      onError={handleImageError}
+                      className={`w-full h-full object-cover transition-opacity duration-200 ${
+                        imageLoadState.header === 'loaded' ? 'opacity-100' : 'opacity-0'
+                      }`}
+                      onError={(e) => handleImageError(e, 'header')}
+                      onLoad={() => handleImageLoad('header')}
                       key={`avatar-${forceRefresh}`}
                     />
-                    <div className="w-full h-full bg-gradient-to-r from-blue-500 to-blue-600 flex items-center justify-center" style={{ display: 'none' }}>
-                      <span className="text-white text-xs font-semibold">
-                        {getUserInitials(user?.nama)}
-                      </span>
-                    </div>
-                  </>
+                  </div>
                 ) : (
                   <div className="w-full h-full bg-gradient-to-r from-blue-500 to-blue-600 flex items-center justify-center">
                     <span className="text-white text-xs font-semibold">
@@ -509,21 +531,22 @@ export default function Header({ onToggleSidebar, isSidebarOpen }) {
                 <div className="px-4 py-4 bg-gradient-to-r from-blue-50 to-blue-100">
                   <div className="flex items-center space-x-3">
                     <div className="w-12 h-12 rounded-full flex items-center justify-center overflow-hidden border-2 border-white shadow-sm">
-                      {getUserPhotoUrl(user?.foto) ? (
-                        <>
+                      {getUserPhotoUrl(user?.foto) && imageLoadState.dropdown !== 'error' ? (
+                        <div className="relative w-full h-full">
+                          {imageLoadState.dropdown === 'loading' && (
+                            <div className="absolute inset-0 bg-gray-200 animate-pulse"></div>
+                          )}
                           <img
                             src={getUserPhotoUrl(user?.foto)}
                             alt={`Foto ${user?.nama}`}
-                            className="w-full h-full object-cover"
-                            onError={handleImageError}
+                            className={`w-full h-full object-cover transition-opacity duration-200 ${
+                              imageLoadState.dropdown === 'loaded' ? 'opacity-100' : 'opacity-0'
+                            }`}
+                            onError={(e) => handleImageError(e, 'dropdown')}
+                            onLoad={() => handleImageLoad('dropdown')}
                             key={`dropdown-avatar-${forceRefresh}`}
                           />
-                          <div className="w-full h-full bg-gradient-to-r from-blue-500 to-blue-600 flex items-center justify-center" style={{ display: 'none' }}>
-                            <span className="text-white text-sm font-semibold">
-                              {getUserInitials(user?.nama)}
-                            </span>
-                          </div>
-                        </>
+                        </div>
                       ) : (
                         <div className="w-full h-full bg-gradient-to-r from-blue-500 to-blue-600 flex items-center justify-center">
                           <span className="text-white text-sm font-semibold">

@@ -21,127 +21,114 @@ export const NotificationProvider = ({ children }) => {
   // Helper function to get auth headers
   const getAuthHeaders = () => {
     const token = localStorage.getItem('token');
-    console.log('🔐 Token check:', token ? 'Token exists' : 'No token found');
-    console.log('🔐 Token length:', token ? token.length : 0);
-    console.log('🔐 Token preview:', token ? `${token.substring(0, 50)}...` : 'N/A');
     
     const headers = {
       'Authorization': `Bearer ${token}`,
       'Content-Type': 'application/json'
     };
     
-    console.log('🔑 Full Authorization header:', headers.Authorization);
     return headers;
   };
 
   // Fetch notifications from API
   const fetchNotifications = async () => {
-    console.log('🔄 fetchNotifications called');
     setLoading(true);
     try {
       const url = `${config.api.url}${config.endpoints.notifications}`;
-      console.log('📡 Fetching from URL:', url);
       
       const headers = getAuthHeaders();
-      console.log('🔑 Headers:', headers);
       
       const response = await fetch(url, { headers });
       
-      console.log('📨 Response status:', response.status);
-      console.log('📨 Response ok:', response.ok);
-      
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('❌ Error response:', errorText);
+        console.error('Failed to fetch notifications:', errorText);
         throw new Error('Failed to fetch notifications');
       }
       
       const data = await response.json();
-      console.log('📦 Response data:', data);
-      console.log('📦 Response data type:', typeof data);
-      console.log('📦 Response data.success:', data.success);
-      console.log('📦 Response data.data:', data.data);
-      console.log('📦 Response data.data type:', typeof data.data);
-      console.log('📦 Response data.data isArray:', Array.isArray(data.data));
       
       let notificationsArray = [];
       
       // Try different response formats
       if (Array.isArray(data)) {
-        console.log('✅ Direct array response');
         notificationsArray = data;
       } else if (data && data.success && Array.isArray(data.data)) {
-        console.log('✅ Success response with data array');
         notificationsArray = data.data;
       } else if (data && data.data && Array.isArray(data.data)) {
-        console.log('✅ Data object with array');
         notificationsArray = data.data;
       } else if (data && Array.isArray(data.notifications)) {
-        console.log('✅ Notifications property array');
         notificationsArray = data.notifications;
       } else if (data && data.success && data.data === null) {
-        console.log('✅ Success with null data (empty)');
         notificationsArray = [];
       } else {
-        console.log('⚠️ Unexpected response format, trying data as array or empty');
-        console.log('⚠️ Full response:', JSON.stringify(data, null, 2));
         // Last resort: try data property or empty array
         notificationsArray = Array.isArray(data.data) ? data.data : [];
       }
       
-      console.log('📝 Final notifications array to set:', notificationsArray);
-      console.log('📝 Array length:', notificationsArray.length);
-      
       setNotifications(notificationsArray);
       
-      // Force re-render by logging after state update (this will show in next render)
+      // Calculate and update unread count based on actual notifications
+      const newUnreadCount = calculateUnreadCount(notificationsArray);
+      setUnreadCount(newUnreadCount);
+      
+      // Force re-render by updating state
       setTimeout(() => {
-        console.log('⏰ After setState - checking current state...');
+        // State update completed
       }, 100);
     } catch (error) {
-      console.error('💥 Failed to fetch notifications:', error);
+      console.error('Failed to fetch notifications:', error);
       setNotifications([]);
     } finally {
       setLoading(false);
-      console.log('✅ fetchNotifications completed');
     }
+  };
+
+  // Helper function to calculate unread count
+  const calculateUnreadCount = (notificationList) => {
+    const count = notificationList.filter(notification => {
+      // Count as unread if:
+      // 1. Not read yet (!read_at)
+      // 2. OR still pending (pending: true)
+      return !notification.read_at || notification.pending;
+    }).length;
+    
+    return count;
   };
 
   // Fetch unread count from API
   const fetchUnreadCount = async () => {
-    console.log('🔄 fetchUnreadCount called');
     try {
       const url = `${config.api.url}${config.endpoints.notificationsUnreadCount}`;
-      console.log('📡 Fetching unread count from URL:', url);
       
       const response = await fetch(url, {
         headers: getAuthHeaders()
       });
       
-      console.log('📨 Unread count response status:', response.status);
-      console.log('📨 Unread count response ok:', response.ok);
-      
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('❌ Unread count error response:', errorText);
+        console.error('Failed to fetch unread count:', errorText);
         throw new Error('Failed to fetch unread count');
       }
       
       const data = await response.json();
-      console.log('📦 Unread count response data:', data);
       
       if (data.success) {
         const count = data.data?.unread_count || 0;
-        console.log('✅ Setting unread count:', count);
-        setUnreadCount(count);
+        
+        // But also check our local calculation for comparison
+        const localCount = calculateUnreadCount(notifications);
+        
+        // Use the higher count (API might not include pending notifications)
+        const finalCount = Math.max(count, localCount);
+        setUnreadCount(finalCount);
       } else {
-        console.log('⚠️ Unread count API returned success=false, using notification count');
-        setUnreadCount(notifications.filter(n => !n.read_at).length);
+        const fallbackCount = calculateUnreadCount(notifications);
+        setUnreadCount(fallbackCount);
       }
     } catch (error) {
-      console.error('💥 Failed to fetch unread count:', error);
-      const fallbackCount = notifications.filter(n => !n.read_at).length;
-      console.log('🔄 Using fallback unread count:', fallbackCount);
+      console.error('Failed to fetch unread count:', error);
+      const fallbackCount = calculateUnreadCount(notifications);
       setUnreadCount(fallbackCount);
     }
   };
@@ -159,16 +146,16 @@ export const NotificationProvider = ({ children }) => {
       }
       
       // Update local state
-      setNotifications(prev => 
-        prev.map(notification => 
-          notification.id_notification === notificationId 
-            ? { ...notification, read_at: new Date().toISOString() }
-            : notification
-        )
+      const updatedNotifications = notifications.map(notification => 
+        notification.id_notification === notificationId 
+          ? { ...notification, read_at: new Date().toISOString() }
+          : notification
       );
+      setNotifications(updatedNotifications);
       
-      // Update unread count
-      setUnreadCount(prev => Math.max(0, prev - 1));
+      // Update unread count based on new notifications
+      const newUnreadCount = calculateUnreadCount(updatedNotifications);
+      setUnreadCount(newUnreadCount);
     } catch (error) {
       console.error('Failed to mark notification as read:', error);
     }
@@ -219,13 +206,16 @@ export const NotificationProvider = ({ children }) => {
       const data = await response.json();
       
       // Update local state
-      setNotifications(prev => 
-        prev.map(notification => 
-          notification.metadata?.request_id === requestId 
-            ? { ...notification, pending: false, accepted: true }
-            : notification
-        )
+      const updatedNotifications = notifications.map(notification => 
+        notification.metadata?.request_id === requestId 
+          ? { ...notification, pending: false, accepted: true }
+          : notification
       );
+      setNotifications(updatedNotifications);
+      
+      // Update unread count based on new notifications
+      const newUnreadCount = calculateUnreadCount(updatedNotifications);
+      setUnreadCount(newUnreadCount);
       
       // Refresh data from server
       await fetchNotifications();
@@ -252,13 +242,16 @@ export const NotificationProvider = ({ children }) => {
       const data = await response.json();
       
       // Update local state
-      setNotifications(prev => 
-        prev.map(notification => 
-          notification.metadata?.request_id === requestId 
-            ? { ...notification, pending: false, accepted: false }
-            : notification
-        )
+      const updatedNotifications = notifications.map(notification => 
+        notification.metadata?.request_id === requestId 
+          ? { ...notification, pending: false, accepted: false }
+          : notification
       );
+      setNotifications(updatedNotifications);
+      
+      // Update unread count based on new notifications
+      const newUnreadCount = calculateUnreadCount(updatedNotifications);
+      setUnreadCount(newUnreadCount);
       
       // Refresh data from server
       await fetchNotifications();
@@ -272,58 +265,94 @@ export const NotificationProvider = ({ children }) => {
 
     // Check if role change needs notification
   const needsRoleChangeNotification = (currentUserRole, targetCurrentRole, targetNewRole, isEditingSelf) => {
+    console.log('🔔 Checking role change notification need:');
+    console.log('🔔 Current user role:', currentUserRole);
+    console.log('🔔 Target current role:', targetCurrentRole);
+    console.log('🔔 Target new role:', targetNewRole);
+    console.log('🔔 Is editing self:', isEditingSelf);
+    
     // Tidak perlu notifikasi jika edit sendiri
-    if (isEditingSelf) return false;
+    if (isEditingSelf) {
+      console.log('🔔 Result: FALSE - editing self');
+      return false;
+    }
 
     // Aturan yang memerlukan notifikasi:
     // 1. BPH mengganti role sesama BPH
-    if (currentUserRole === 'bph' && targetCurrentRole === 'bph') return true;
+    if (currentUserRole === 'bph' && targetCurrentRole === 'bph') {
+      console.log('🔔 Result: TRUE - BPH mengganti role sesama BPH');
+      return true;
+    }
     
     // 2. BPH mengganti role DPO
-    if (currentUserRole === 'bph' && targetCurrentRole === 'dpo') return true;
+    if (currentUserRole === 'bph' && targetCurrentRole === 'dpo') {
+      console.log('🔔 Result: TRUE - BPH mengganti role DPO');
+      return true;
+    }
     
     // 3. DPO mengganti role sesama DPO  
-    if (currentUserRole === 'dpo' && targetCurrentRole === 'dpo') return true;
+    if (currentUserRole === 'dpo' && targetCurrentRole === 'dpo') {
+      console.log('🔔 Result: TRUE - DPO mengganti role sesama DPO');
+      return true;
+    }
     
     // 4. DPO mengganti role ALB
-    if (currentUserRole === 'dpo' && targetCurrentRole === 'alb') return true;
+    if (currentUserRole === 'dpo' && targetCurrentRole === 'alb') {
+      console.log('🔔 Result: TRUE - DPO mengganti role ALB');
+      return true;
+    }
     
     // 5. BPH mengganti role ALB
-    if (currentUserRole === 'bph' && targetCurrentRole === 'alb') return true;
+    if (currentUserRole === 'bph' && targetCurrentRole === 'alb') {
+      console.log('🔔 Result: TRUE - BPH mengganti role ALB');
+      return true;
+    }
+
+    // 6. DPO mengganti role BPH menjadi DPO (Added: 18 Sept 2025)
+    // Ini memungkinkan DPO untuk "promote" BPH menjadi DPO dengan persetujuan
+    if (currentUserRole === 'dpo' && targetCurrentRole === 'bph' && targetNewRole === 'dpo') {
+      console.log('🔔 Result: TRUE - DPO mengganti role BPH menjadi DPO');
+      return true;
+    }
 
     // Yang TIDAK perlu notifikasi:
-    // - DPO mengganti role BPH atau anggota
+    // - DPO mengganti role BPH ke role lain selain DPO 
+    // - DPO mengganti role anggota
     // - BPH mengganti role Anggota
-    if (currentUserRole === 'dpo' && (targetCurrentRole === 'bph' || targetCurrentRole === 'anggota')) return false;
-    if (currentUserRole === 'bph' && targetCurrentRole === 'anggota') return false;
+    if (currentUserRole === 'dpo' && targetCurrentRole === 'bph' && targetNewRole !== 'dpo') {
+      console.log('🔔 Result: FALSE - DPO mengganti role BPH ke role lain selain DPO');
+      return false;
+    }
+    if (currentUserRole === 'dpo' && targetCurrentRole === 'anggota') {
+      console.log('🔔 Result: FALSE - DPO mengganti role anggota');
+      return false;
+    }
+    if (currentUserRole === 'bph' && targetCurrentRole === 'anggota') {
+      console.log('🔔 Result: FALSE - BPH mengganti role anggota');
+      return false;
+    }
 
+    console.log('🔔 Result: FALSE - default case');
     return false;
   };
 
   // Load initial data when component mounts
   useEffect(() => {
-    console.log('🚀 useNotifications useEffect triggered');
     const token = localStorage.getItem('token');
     if (token) {
-      console.log('✅ Token found, loading notifications...');
       fetchNotifications();
       fetchUnreadCount();
-    } else {
-      console.log('❌ No token found, skipping notification load');
     }
   }, []);
 
-  // Debug: Log notifications state changes
+  // Recalculate unread count whenever notifications change
   useEffect(() => {
-    console.log('🔄 Notifications state changed:', notifications);
-    console.log('🔄 Notifications length:', notifications.length);
-    console.log('🔄 Notifications content:', JSON.stringify(notifications, null, 2));
+    // Recalculate unread count whenever notifications change
+    if (notifications.length > 0) {
+      const newUnreadCount = calculateUnreadCount(notifications);
+      setUnreadCount(newUnreadCount);
+    }
   }, [notifications]);
-
-  // Debug: Log unread count changes
-  useEffect(() => {
-    console.log('🔢 Unread count changed:', unreadCount);
-  }, [unreadCount]);
 
   // Refresh notifications periodically (every 30 seconds)
   useEffect(() => {

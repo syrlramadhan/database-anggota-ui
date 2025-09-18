@@ -203,7 +203,6 @@ export default function AddMemberForm({
       submitData.status_keanggotaan = transformStatusForBackend(submitData.status_keanggotaan);
     }
     
-    console.log('Data form yang akan dikirim:', submitData);
     onSubmit(submitData);
     resetForm();
   };

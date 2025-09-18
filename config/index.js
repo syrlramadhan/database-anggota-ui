@@ -15,7 +15,10 @@ const config = {
     statusChangeAccept: (requestId) => `/status-change/${requestId}/accept`,
     statusChangeReject: (requestId) => `/status-change/${requestId}/reject`,
     notificationMarkRead: (notificationId) => `/notifications/${notificationId}/read`,
-    uploads: (filename) => `${config.api.uploadsUrl}/${filename}`,
+    uploads: (filename) => {
+      const uploadsUrl = process.env.NEXT_PUBLIC_UPLOADS_URL || 'http://localhost:8080/uploads';
+      return `${uploadsUrl}/${filename}`;
+    },
   }
 };
 
